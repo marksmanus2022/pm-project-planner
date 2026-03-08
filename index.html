@@ -452,6 +452,12 @@
     .month-date-num.today-num { background: #1a73e8; color: white; font-weight: 600; }
     .month-date-cell.weekend .month-date-num { color: #c0392b; }
     .month-date-cell.other-month .month-date-num { color: #ccc !important; }
+    .month-date-header { display: flex; align-items: center; gap: 4px; }
+    .month-hol-name {
+      font-size: 10px; color: #b06000; font-weight: 500;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .month-date-cell.weekend .month-hol-name { color: #c0392b; }
 
     /* Month title bar (multi-month view) */
     .month-title-bar {
@@ -2565,8 +2571,10 @@ function renderMonthCalendar() {
           ondrop="calDrop(event,'${dateKey(d)}')"
           ondragleave="calDragLeave(event)"
           onclick="openDayMenu(event,'${dateKey(d)}')">
-          <span class="month-date-num${isTod ? ' today-num' : ''}">${d.getDate()}</span>
-          ${holLbl}
+          <div class="month-date-header">
+            <span class="month-date-num${isTod ? ' today-num' : ''}">${d.getDate()}</span>
+            ${hol ? `<span class="month-hol-name" title="${holTip}">: ${hol.name}</span>` : ''}
+          </div>
         </div>`;
       });
       html += '</div>';
