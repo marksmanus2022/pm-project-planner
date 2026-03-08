@@ -2418,10 +2418,11 @@ function renderMonthCalendar() {
           const beginLabel = (barType === 'start' || barType === 'solo') ? '<span class="bar-begin-label">Task Begin</span>' : '';
           const endLabel   = (barType === 'end'   || barType === 'solo') ? '<span class="bar-end-label">End</span>' : '';
           const durBadge   = `<span class="month-bar-badge month-bar-dur">${task.duration}d</span>`;
+          const calBarDraggable = !task.locked && !isSiteLocked(task.site);
           html += `<div class="${barCls}"
             style="${barStyle}"
             data-tip='${tipData}' data-taskid="${task.uid}"
-            draggable="true"
+            draggable="${calBarDraggable}"
             ondragstart="calDragStart(event,'${task.uid}')"
             ondragend="calDragEnd()"
             onmouseenter="showTooltip(event,this)" onmouseleave="hideTooltip()"
