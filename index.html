@@ -1029,8 +1029,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <!-- Day Context Menu -->
 <div id="day-menu">
   <div class="day-menu-date" id="day-menu-date"></div>
-  <div class="day-menu-item" onclick="dayMenuAddTask()">&#43; Add Task</div>
-  <div class="day-menu-item holiday-action" id="day-menu-holiday-btn" onclick="dayMenuHoliday()">&#127956; Mark as Holiday</div>
+  <div class="day-menu-item" onclick="dayMenuAddTask()">&#43; Add a Task</div>
+  <div class="day-menu-item holiday-action" id="day-menu-holiday-btn" onclick="dayMenuHoliday()">&#127956; Mark as a Holiday</div>
 </div>
 
 <!-- Holiday Edit Modal -->
@@ -3168,7 +3168,7 @@ function openDayMenu(event, dateStr) {
   const hol    = holidays.find(h => h.date === dateStr);
 
   lbl.textContent = formatDate(parseDate(dateStr), 'long');
-  btn.textContent  = hol ? '\uD83C\uDFF5 Edit Holiday' : '\uD83C\uDFF5 Mark as Holiday';
+  btn.textContent  = hol ? '\uD83C\uDFF5 Edit Holiday' : '\uD83C\uDFF5 Mark as a Holiday';
   btn.className    = 'day-menu-item ' + (hol ? 'holiday-edit' : 'holiday-action');
 
   // Position near cursor, keep inside viewport
