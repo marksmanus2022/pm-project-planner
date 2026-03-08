@@ -3351,9 +3351,10 @@ function submitQuickAdd() {
   // Do NOT auto-load from localStorage — app always starts empty.
   // User must explicitly click Load to open a .pmplan file.
   updateUndoRedoButtons();
-  currentMonth   = new Date(projectStart.getFullYear(), projectStart.getMonth(), 1);
-  currentWeekMon = getWeekMonday(projectStart);
-  miniMonthRef   = new Date(projectStart);
+  const today    = new Date();
+  currentMonth   = new Date(today.getFullYear(), today.getMonth(), 1);
+  currentWeekMon = getWeekMonday(today);
+  miniMonthRef   = new Date(today);
 
   const psi = document.getElementById('projectStartInput');
   psi.value = dateKey(projectStart);
