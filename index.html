@@ -559,6 +559,58 @@
     .task-block.evaluation .tb-name,
     .task-block.evaluation .tb-days { opacity: 0.9; }
 
+    /* ── EXCLUSIVE CHECKBOX (form) ── */
+    .exclusive-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      margin-bottom: 8px; padding: 7px 9px;
+      background: #fff8f0; border-radius: 6px; border: 1px solid #ffe0b2;
+    }
+    .exclusive-row input[type="checkbox"] {
+      width: 14px; height: 14px; margin-top: 2px;
+      cursor: pointer; accent-color: #e65100; flex-shrink: 0;
+    }
+    .exclusive-row label { font-size: 12px; color: #555; cursor: pointer; line-height: 1.4; }
+    .exclusive-row .exclusive-help { display: block; font-size: 10px; color: #999; font-style: italic; margin-top: 2px; }
+    .exclusive-badge {
+      font-size: 9px; font-weight: 700; color: #e65100;
+      background: #fff3e0; border: 1px solid #ffe0b2;
+      border-radius: 3px; padding: 1px 5px; letter-spacing: 0.3px; white-space: nowrap;
+    }
+
+    /* ── EXCLUSIVE WARNING MODAL ── */
+    #exclusive-warn-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 9100;
+      align-items: center; justify-content: center;
+    }
+    #exclusive-warn-overlay.show { display: flex; }
+    #exclusive-warn-modal {
+      background: white; border-radius: 10px;
+      padding: 28px 28px 22px; max-width: 430px; width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    #exclusive-warn-modal h3 {
+      font-size: 15px; font-weight: 700; color: #e65100; margin-bottom: 8px;
+    }
+    #exclusive-warn-modal p { font-size: 13px; color: #555; margin-bottom: 10px; line-height: 1.5; }
+    #exclusive-conflict-list {
+      font-size: 12px; color: #333; background: #fff8f0;
+      border-left: 3px solid #f57c00; padding: 8px 12px;
+      border-radius: 4px; margin-bottom: 18px; line-height: 1.7;
+    }
+    .exclusive-warn-yes {
+      width: 100%; padding: 10px; background: #e65100; color: white;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; margin-bottom: 8px;
+    }
+    .exclusive-warn-yes:hover { background: #bf360c; }
+    .exclusive-warn-no {
+      width: 100%; padding: 8px; background: none;
+      border: 1px solid #ddd; border-radius: 6px; font-size: 13px;
+      cursor: pointer; color: #666;
+    }
+    .exclusive-warn-no:hover { background: #f5f5f5; }
+
     /* Plan-type modal overlay */
     #plan-type-overlay {
       display: none; position: fixed; inset: 0;
@@ -957,6 +1009,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <input type="date" id="f-start-override" />
           </div>
         </div>
+        <div class="exclusive-row">
+          <input type="checkbox" id="f-exclusive" />
+          <label for="f-exclusive">
+            ⛔ Exclusive
+            <span class="exclusive-help">No other activity can be arranged in the same time</span>
+          </label>
+        </div>
         <div class="form-btn-row">
           <button class="btn-add" id="btnSubmit" onclick="addTask()">+ Add Task</button>
           <button class="btn-cancel-edit" id="btnCancelEdit" onclick="cancelEdit()">Cancel</button>
@@ -1167,6 +1226,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   </div>
 </div>
 
+<!-- Exclusive conflict warning -->
+<div id="exclusive-warn-overlay">
+  <div id="exclusive-warn-modal">
+    <h3>⚠️ Exclusive Task Conflict</h3>
+    <p id="exclusive-warn-msg"></p>
+    <div id="exclusive-conflict-list"></div>
+    <button class="exclusive-warn-yes" onclick="confirmExclusiveAdd()">Yes, add anyway</button>
+    <button class="exclusive-warn-no"  onclick="cancelExclusiveAdd()">No, cancel</button>
+  </div>
+</div>
+
 <!-- Tooltip -->
 <div id="tooltip"></div>
 
@@ -1358,6 +1428,7 @@ function addTask() {
   if (!name)             { alert('Please enter a Task Name'); return; }
   if (!shifts || shifts < 1) { alert('Days must be at least 1'); return; }
 
+  const exclusive = document.getElementById('f-exclusive').checked;
   const deps = [];
 
   if (editingTaskId) {
@@ -1368,7 +1439,7 @@ function addTask() {
       if (tasks.find(t => t.uid !== editingTaskId && t.id === id && t.site === site)) {
         alert(`Task # "${id}" already exists for site "${site}".`); return;
       }
-      tasks[idx] = { ...tasks[idx], id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps };
+      tasks[idx] = { ...tasks[idx], id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps, exclusive };
     }
     const editedUid  = editingTaskId;
     const editedSite = site;
@@ -1383,15 +1454,36 @@ function addTask() {
       alert(`Task # "${id}" already exists for site "${site}".`); return;
     }
     const uid = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    const newTask = { uid, id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps, planType: 'sequential' };
+    const newTask = { uid, id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps, planType: 'sequential', exclusive };
 
     // Temporarily push + compute to get the new task's dates for overlap check
     tasks.push(newTask);
     computeSchedule();
     const newComp = computed.find(t => t.uid === uid);
-    const hasOverlap = newComp && newComp.startDate && newComp.endDate &&
-      computed.some(t => t.uid !== uid && t.startDate && t.endDate &&
-        newComp.startDate <= t.endDate && newComp.endDate >= t.startDate);
+    const overlappingTasks = newComp && newComp.startDate && newComp.endDate
+      ? computed.filter(t => t.uid !== uid && t.startDate && t.endDate &&
+          newComp.startDate <= t.endDate && newComp.endDate >= t.startDate)
+      : [];
+    const hasOverlap = overlappingTasks.length > 0;
+
+    // Check exclusive conflicts first (new task is exclusive OR overlaps an exclusive task)
+    const exclusiveConflicts = overlappingTasks.filter(t => {
+      const orig = tasks.find(tt => tt.uid === t.uid);
+      return exclusive || (orig && orig.exclusive);
+    });
+
+    if (exclusiveConflicts.length > 0) {
+      tasks.pop();
+      pendingTask = newTask;
+      const isNewExclusive = exclusive;
+      document.getElementById('exclusive-warn-msg').textContent = isNewExclusive
+        ? 'This task is marked as Exclusive — no other activity can be arranged at the same time. It conflicts with the following task(s):'
+        : 'This task overlaps with an Exclusive task — no other activity can be arranged at the same time. Conflicting task(s):';
+      document.getElementById('exclusive-conflict-list').innerHTML =
+        exclusiveConflicts.map(t => `• <strong>${t.id} — ${t.name}</strong> (${t.site})`).join('<br>');
+      document.getElementById('exclusive-warn-overlay').classList.add('show');
+      return;
+    }
 
     if (hasOverlap) {
       // Remove from tasks while we wait for the user's choice
@@ -1425,6 +1517,7 @@ function startEditTask(uid) {
   document.getElementById('f-site-color').value    = getSiteColor(task.site || 'No Site');
   document.getElementById('f-working').value       = task.mode;
   document.getElementById('f-start-override').value = task.startOverride || '';
+  document.getElementById('f-exclusive').checked    = !!task.exclusive;
 
   // Update form UI to edit mode
   document.getElementById('taskForm').classList.add('editing');
@@ -1498,6 +1591,7 @@ function clearFormAfterAdd(lastSite, lastTeam) {
   document.getElementById('f-duration').value        = '';
   document.getElementById('f-shifts-per-day').value  = '1';
   document.getElementById('f-start-override').value  = '';
+  document.getElementById('f-exclusive').checked     = false;
   // Pre-fill site and team from the task just saved
   document.getElementById('f-site').value           = lastSite || '';
   document.getElementById('f-team').value           = lastTeam || '';
@@ -1613,6 +1707,21 @@ function confirmPlanType(type) {
   document.getElementById('plan-type-overlay').classList.remove('show');
   save(); refresh();
   clearFormAfterAdd(lastSite, lastTeam);
+}
+
+function confirmExclusiveAdd() {
+  document.getElementById('exclusive-warn-overlay').classList.remove('show');
+  if (!pendingTask) return;
+  const task = pendingTask;
+  pendingTask = null;
+  tasks.push(task);
+  save(); refresh();
+  clearFormAfterAdd(task.site, task.team);
+}
+
+function cancelExclusiveAdd() {
+  document.getElementById('exclusive-warn-overlay').classList.remove('show');
+  pendingTask = null;
 }
 
 function cancelPlanType() {
@@ -2007,6 +2116,7 @@ function renderTaskList() {
           <div class="task-team-row">
             <span class="task-team-badge" title="${task.team}">${task.team}</span>
             ${task.locked ? '<span style="font-size:10px;color:#f57c00;font-weight:700;">&#128274; Locked</span>' : ''}
+            ${task.exclusive ? '<span class="exclusive-badge">⛔ Exclusive</span>' : ''}
           </div>
           <div class="task-item-name">${task.id} — ${task.name}${task.planType === 'evaluation' ? ' <span style="font-size:10px;color:#888;font-style:italic;font-weight:400;">(eval)</span>' : ''}</div>
           <div class="task-item-meta"><span style="color:#111;font-weight:700;">${task.duration} day(s)</span> · ${task.duration * (task.shiftsPerDay||1) * 8}h · ${task.shiftsPerDay||1} shift(s)/day · ${task.calDays||0} cal.days</div>
