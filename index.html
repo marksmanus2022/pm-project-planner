@@ -1254,7 +1254,8 @@ let tasks         = [];
 let computed      = [];
 let holidays      = [];  // [{ date:'YYYY-MM-DD', name:'...', comment:'...' }]
 let editingTaskId = null;
-let pendingTask     = null;  // task waiting for plan-type confirmation
+let pendingTask         = null;  // task waiting for plan-type confirmation
+let pendingTaskCallback = null;  // called after user confirms a pending task
 let duplicatingSite = null;  // site being duplicated
 
 // ─── UNDO / REDO ─────────────────────────────────────────────────────────────
@@ -1463,48 +1464,50 @@ function addTask() {
     }
     const uid = Date.now().toString(36) + Math.random().toString(36).slice(2);
     const newTask = { uid, id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps, planType: 'sequential', exclusive };
-
-    // Temporarily push + compute to get the new task's dates for overlap check
-    tasks.push(newTask);
-    computeSchedule();
-    const newComp = computed.find(t => t.uid === uid);
-    const overlappingTasks = newComp && newComp.startDate && newComp.endDate
-      ? computed.filter(t => t.uid !== uid && t.startDate && t.endDate &&
-          newComp.startDate <= t.endDate && newComp.endDate >= t.startDate)
-      : [];
-    const hasOverlap = overlappingTasks.length > 0;
-
-    // Check exclusive conflicts first (new task is exclusive OR overlaps an exclusive task)
-    const exclusiveConflicts = overlappingTasks.filter(t => {
-      const orig = tasks.find(tt => tt.uid === t.uid);
-      return exclusive || (orig && orig.exclusive);
-    });
-
-    if (exclusiveConflicts.length > 0) {
-      tasks.pop();
-      pendingTask = newTask;
-      const isNewExclusive = exclusive;
-      document.getElementById('exclusive-warn-msg').textContent = isNewExclusive
-        ? 'This task is marked as Exclusive — no other activity can be arranged at the same time. It conflicts with the following task(s):'
-        : 'This task overlaps with an Exclusive task — no other activity can be arranged at the same time. Conflicting task(s):';
-      document.getElementById('exclusive-conflict-list').innerHTML =
-        exclusiveConflicts.map(t => `• <strong>${t.id} — ${t.name}</strong> (${t.site})`).join('<br>');
-      document.getElementById('exclusive-warn-overlay').classList.add('show');
-      return;
-    }
-
-    if (hasOverlap) {
-      // Remove from tasks while we wait for the user's choice
-      tasks.pop();
-      pendingTask = newTask;
-      document.getElementById('plan-type-overlay').classList.add('show');
-      return;
-    }
-
-    save(); refresh();
-    clearFormAfterAdd(site, team);
+    processNewTask(newTask, () => { save(); refresh(); clearFormAfterAdd(site, team); });
     return;
   }
+}
+
+// ─── SHARED NEW-TASK PROCESSING ───────────────────────────────────────────────
+// Single source of truth for overlap / exclusive checks.
+// Both addTask() and submitQuickAdd() call this so logic is never duplicated.
+function processNewTask(newTask, afterSuccess) {
+  pendingTaskCallback = afterSuccess;
+  tasks.push(newTask);
+  computeSchedule();
+  const newComp = computed.find(t => t.uid === newTask.uid);
+  const overlappingTasks = newComp && newComp.startDate && newComp.endDate
+    ? computed.filter(t => t.uid !== newTask.uid && t.startDate && t.endDate &&
+        newComp.startDate <= t.endDate && newComp.endDate >= t.startDate)
+    : [];
+
+  const exclusiveConflicts = overlappingTasks.filter(t => {
+    const orig = tasks.find(tt => tt.uid === t.uid);
+    return newTask.exclusive || (orig && orig.exclusive);
+  });
+
+  if (exclusiveConflicts.length > 0) {
+    tasks.pop();
+    pendingTask = newTask;
+    document.getElementById('exclusive-warn-msg').textContent = newTask.exclusive
+      ? 'This task is marked as Exclusive — no other activity can be arranged at the same time. It conflicts with the following task(s):'
+      : 'This task overlaps with an Exclusive task — no other activity can be arranged at the same time. Conflicting task(s):';
+    document.getElementById('exclusive-conflict-list').innerHTML =
+      exclusiveConflicts.map(t => `• <strong>${t.id} — ${t.name}</strong> (${t.site})`).join('<br>');
+    document.getElementById('exclusive-warn-overlay').classList.add('show');
+    return;
+  }
+
+  if (overlappingTasks.length > 0) {
+    tasks.pop();
+    pendingTask = newTask;
+    document.getElementById('plan-type-overlay').classList.add('show');
+    return;
+  }
+
+  // No conflicts — task already in tasks[], run callback
+  afterSuccess();
 }
 
 function startEditTask(uid) {
@@ -1709,31 +1712,35 @@ function confirmPlanType(type) {
   if (!pendingTask) return;
   pendingTask.planType = type;
   tasks.push(pendingTask);
-  const lastSite = pendingTask.site;
-  const lastTeam = pendingTask.team;
+  const cb = pendingTaskCallback;
   pendingTask = null;
+  pendingTaskCallback = null;
   document.getElementById('plan-type-overlay').classList.remove('show');
   save(); refresh();
-  clearFormAfterAdd(lastSite, lastTeam);
+  if (cb) cb();
 }
 
 function confirmExclusiveAdd() {
   document.getElementById('exclusive-warn-overlay').classList.remove('show');
   if (!pendingTask) return;
   const task = pendingTask;
+  const cb = pendingTaskCallback;
   pendingTask = null;
+  pendingTaskCallback = null;
   tasks.push(task);
   save(); refresh();
-  clearFormAfterAdd(task.site, task.team);
+  if (cb) cb();
 }
 
 function cancelExclusiveAdd() {
   document.getElementById('exclusive-warn-overlay').classList.remove('show');
   pendingTask = null;
+  pendingTaskCallback = null;
 }
 
 function cancelPlanType() {
   pendingTask = null;
+  pendingTaskCallback = null;
   document.getElementById('plan-type-overlay').classList.remove('show');
 }
 
@@ -3443,45 +3450,8 @@ function submitQuickAdd() {
   const newTask = { uid, id, name, duration, shiftsPerDay: spd, team, site,
                     mode, startOverride: start, deps: [], planType: 'sequential', exclusive };
 
-  // Check for overlap
-  tasks.push(newTask);
-  computeSchedule();
-  const newComp = computed.find(t => t.uid === uid);
-  const overlappingTasks = newComp && newComp.startDate && newComp.endDate
-    ? computed.filter(t => t.uid !== uid && t.startDate && t.endDate &&
-        newComp.startDate <= t.endDate && newComp.endDate >= t.startDate)
-    : [];
-  const hasOverlap = overlappingTasks.length > 0;
-
-  // Check exclusive conflicts first
-  const exclusiveConflicts = overlappingTasks.filter(t => {
-    const orig = tasks.find(tt => tt.uid === t.uid);
-    return exclusive || (orig && orig.exclusive);
-  });
-
-  if (exclusiveConflicts.length > 0) {
-    tasks.pop();
-    pendingTask = newTask;
-    closeQuickAdd();
-    document.getElementById('exclusive-warn-msg').textContent = exclusive
-      ? 'This task is marked as Exclusive — no other activity can be arranged at the same time. It conflicts with the following task(s):'
-      : 'This task overlaps with an Exclusive task — no other activity can be arranged at the same time. Conflicting task(s):';
-    document.getElementById('exclusive-conflict-list').innerHTML =
-      exclusiveConflicts.map(t => `• <strong>${t.id} — ${t.name}</strong> (${t.site})`).join('<br>');
-    document.getElementById('exclusive-warn-overlay').classList.add('show');
-    return;
-  }
-
-  if (hasOverlap) {
-    tasks.pop();
-    pendingTask = newTask;
-    closeQuickAdd();
-    document.getElementById('plan-type-overlay').classList.add('show');
-    return;
-  }
-
   closeQuickAdd();
-  save(); refresh();
+  processNewTask(newTask, () => { save(); refresh(); });
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
