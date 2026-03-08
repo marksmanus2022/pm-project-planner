@@ -570,7 +570,25 @@
       cursor: pointer; accent-color: #e65100; flex-shrink: 0;
     }
     .exclusive-row label { font-size: 12px; color: #555; cursor: pointer; line-height: 1.4; }
-    .exclusive-row .exclusive-help { display: block; font-size: 10px; color: #999; font-style: italic; margin-top: 2px; }
+    .exclusive-help {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #bbb; color: white; font-size: 10px; font-weight: 700;
+      cursor: default; flex-shrink: 0; position: relative; margin-left: 4px;
+      font-style: normal;
+    }
+    .exclusive-help::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      background: #333; color: white; font-size: 11px; font-weight: 400;
+      white-space: nowrap; padding: 5px 9px; border-radius: 5px;
+      pointer-events: none; opacity: 0;
+      transition: opacity 0.15s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 9999;
+    }
+    .exclusive-help:hover::after { opacity: 1; }
     .exclusive-badge {
       font-size: 9px; font-weight: 700; color: #e65100;
       background: #fff3e0; border: 1px solid #ffe0b2;
@@ -1013,7 +1031,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           <input type="checkbox" id="f-exclusive" />
           <label for="f-exclusive">
             ⛔ Exclusive
-            <span class="exclusive-help">We dont recommend to arrange other task in the same time.</span>
+            <span class="exclusive-help" data-tip="We dont recommend to arrange other task in the same time.">?</span>
           </label>
         </div>
         <div class="form-btn-row">
