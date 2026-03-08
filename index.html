@@ -1179,6 +1179,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       </div>
     </div>
 
+    <div class="exclusive-row" style="margin-top:4px;">
+      <input type="checkbox" id="qa-exclusive" />
+      <label for="qa-exclusive">
+        ⛔ Exclusive
+        <span class="exclusive-help">No other activity can be arranged in the same time</span>
+      </label>
+    </div>
+
     <div class="qa-actions">
       <button class="qa-submit" onclick="submitQuickAdd()">&#43; Add Task</button>
       <button class="qa-cancel" onclick="closeQuickAdd()">Cancel</button>
@@ -3378,6 +3386,7 @@ function openQuickAdd(dateStr) {
   document.getElementById('qa-spd').value      = '1';
   document.getElementById('qa-mode').value     = 'workdays';
   document.getElementById('qa-team').value     = '';
+  document.getElementById('qa-exclusive').checked = false;
 
   document.getElementById('quick-add-overlay').classList.add('show');
   setTimeout(() => document.getElementById('qa-site').focus(), 50);
@@ -3428,17 +3437,40 @@ function submitQuickAdd() {
     alert(`Task # "${id}" already exists for site "${site}".`); return;
   }
 
+  const exclusive = document.getElementById('qa-exclusive').checked;
+
   const uid     = Date.now().toString(36) + Math.random().toString(36).slice(2);
   const newTask = { uid, id, name, duration, shiftsPerDay: spd, team, site,
-                    mode, startOverride: start, deps: [], planType: 'sequential' };
+                    mode, startOverride: start, deps: [], planType: 'sequential', exclusive };
 
   // Check for overlap
   tasks.push(newTask);
   computeSchedule();
-  const newComp   = computed.find(t => t.uid === uid);
-  const hasOverlap = newComp && newComp.startDate && newComp.endDate &&
-    computed.some(t => t.uid !== uid && t.startDate && t.endDate &&
-      newComp.startDate <= t.endDate && newComp.endDate >= t.startDate);
+  const newComp = computed.find(t => t.uid === uid);
+  const overlappingTasks = newComp && newComp.startDate && newComp.endDate
+    ? computed.filter(t => t.uid !== uid && t.startDate && t.endDate &&
+        newComp.startDate <= t.endDate && newComp.endDate >= t.startDate)
+    : [];
+  const hasOverlap = overlappingTasks.length > 0;
+
+  // Check exclusive conflicts first
+  const exclusiveConflicts = overlappingTasks.filter(t => {
+    const orig = tasks.find(tt => tt.uid === t.uid);
+    return exclusive || (orig && orig.exclusive);
+  });
+
+  if (exclusiveConflicts.length > 0) {
+    tasks.pop();
+    pendingTask = newTask;
+    closeQuickAdd();
+    document.getElementById('exclusive-warn-msg').textContent = exclusive
+      ? 'This task is marked as Exclusive — no other activity can be arranged at the same time. It conflicts with the following task(s):'
+      : 'This task overlaps with an Exclusive task — no other activity can be arranged at the same time. Conflicting task(s):';
+    document.getElementById('exclusive-conflict-list').innerHTML =
+      exclusiveConflicts.map(t => `• <strong>${t.id} — ${t.name}</strong> (${t.site})`).join('<br>');
+    document.getElementById('exclusive-warn-overlay').classList.add('show');
+    return;
+  }
 
   if (hasOverlap) {
     tasks.pop();
