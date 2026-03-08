@@ -614,6 +614,22 @@
       color: white; border: none; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer;
     }
     .popup-btn-delete:hover { background: #c62828; }
+    /* ── LOCK TOAST ── */
+    #lock-toast {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(12px);
+      background: #323232; color: white; border-radius: 8px;
+      padding: 11px 20px; font-size: 13px; font-weight: 500;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.28);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 99999; white-space: nowrap;
+    }
+    #lock-toast.show {
+      opacity: 1; transform: translateX(-50%) translateY(0);
+    }
+    #lock-toast .toast-icon { font-size: 16px; }
+
     .popup-btn-cancel {
       width: 100%; padding: 6px; background: none;
       color: #888; border: none; font-size: 12px; cursor: pointer; margin-top: 4px;
@@ -2004,7 +2020,11 @@ function renderTaskList() {
       `;
 
       el.addEventListener('dragstart', e => {
-        if (task.locked || isSiteLocked(task.site)) { e.preventDefault(); return; }
+        if (task.locked || isSiteLocked(task.site)) {
+          e.preventDefault();
+          showToast(task.locked ? 'This task is locked — unlock it to move it.' : `Site "${task.site}" is locked — unlock the site to move tasks.`);
+          return;
+        }
         dragSrcId = task.uid;
         calDragTaskId = task.uid;          // also register for calendar drop zones
         e.dataTransfer.effectAllowed = 'move';
@@ -2122,7 +2142,11 @@ let calDragSite   = null;   // set when dragging a whole site group
 
 function calDragStart(event, taskId) {
   const t = tasks.find(t => t.uid === taskId);
-  if (t && t.locked) { event.preventDefault(); return; }
+  if (t && (t.locked || isSiteLocked(t.site))) {
+    event.preventDefault();
+    showToast(t.locked ? 'This task is locked — unlock it to move it.' : `Site "${t.site}" is locked — unlock the site to move tasks.`);
+    return;
+  }
   calDragTaskId = taskId;
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', taskId);
@@ -2142,7 +2166,11 @@ function calDragEnd() {
 }
 
 function siteDragStart(event, site) {
-  if (isSiteLocked(site)) { event.preventDefault(); return; }
+  if (isSiteLocked(site)) {
+    event.preventDefault();
+    showToast(`Site "${site}" is locked — unlock it to move tasks.`);
+    return;
+  }
   calDragSite = site;
   calDragTaskId = null;
   event.dataTransfer.effectAllowed = 'move';
@@ -3339,6 +3367,20 @@ function submitQuickAdd() {
 
   refresh();
 })();
+
+let _toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('lock-toast');
+  el.querySelector('.toast-msg').textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
 </script>
+
+<div id="lock-toast">
+  <span class="toast-icon">🔒</span>
+  <span class="toast-msg"></span>
+</div>
 </body>
 </html>
