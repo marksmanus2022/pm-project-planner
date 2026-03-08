@@ -577,17 +577,14 @@
       cursor: default; flex-shrink: 0; position: relative; margin-left: 4px;
       font-style: normal;
     }
-    .exclusive-help::after {
-      content: attr(data-tip);
-      position: absolute; bottom: calc(100% + 6px); left: 0;
-      background: #333; color: white; font-size: 11px; font-weight: 400;
-      white-space: normal; width: 210px; padding: 6px 10px; border-radius: 5px;
-      pointer-events: none; opacity: 0;
-      transition: opacity 0.15s;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      line-height: 1.4; z-index: 9999;
+    #excl-tip {
+      position: fixed; z-index: 99999;
+      background: #333; color: white; font-size: 11px;
+      padding: 6px 10px; border-radius: 5px; line-height: 1.5;
+      width: 210px; white-space: normal;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      pointer-events: none; display: none;
     }
-    .exclusive-help:hover::after { opacity: 1; }
     .exclusive-badge {
       font-size: 9px; font-weight: 700; color: #e65100;
       background: #fff3e0; border: 1px solid #ffe0b2;
@@ -3494,6 +3491,29 @@ function submitQuickAdd() {
   refresh();
 })();
 
+// ── Exclusive ? tooltip ───────────────────────────────────────────────────────
+(function() {
+  const tip = document.getElementById('excl-tip');
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest('.exclusive-help');
+    if (!el) return;
+    tip.textContent = el.dataset.tip;
+    tip.style.display = 'block';
+    const r = el.getBoundingClientRect();
+    const tw = 210, th = tip.offsetHeight;
+    let left = r.right + 8;
+    let top  = r.top + (r.height / 2) - (th / 2);
+    if (left + tw > window.innerWidth - 8) left = r.left - tw - 8;
+    if (top < 8) top = 8;
+    if (top + th > window.innerHeight - 8) top = window.innerHeight - th - 8;
+    tip.style.left = left + 'px';
+    tip.style.top  = top  + 'px';
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest('.exclusive-help')) tip.style.display = 'none';
+  });
+})();
+
 let _toastTimer = null;
 function showToast(msg) {
   const el = document.getElementById('lock-toast');
@@ -3504,6 +3524,7 @@ function showToast(msg) {
 }
 </script>
 
+<div id="excl-tip"></div>
 <div id="lock-toast">
   <span class="toast-icon">🔒</span>
   <span class="toast-msg"></span>
