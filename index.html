@@ -1217,6 +1217,7 @@ const SITE_PALETTE = [
   '#ad1457','#0277bd'
 ];
 const siteColors = {};
+const siteLocks  = {};
 let siteCursor = 0;
 
 function getSiteColor(site) {
@@ -1395,6 +1396,7 @@ function startEditTask(uid) {
   const task = tasks.find(t => t.uid === uid);
   if (!task) return;
   if (task.locked) { alert('This task is locked. Unlock it first before editing.'); return; }
+  if (isSiteLocked(task.site)) { alert(`Site "${task.site}" is locked. Unlock the site first.`); return; }
   editingTaskId = uid;
 
   // Populate form
@@ -1558,7 +1560,15 @@ function cascadeReschedule(site, fromUid) {
 function deleteTask(uid) {
   const t = tasks.find(t => t.uid === uid);
   if (t && t.locked) { alert('This task is locked. Unlock it first before deleting.'); return; }
+  if (t && isSiteLocked(t.site)) { alert(`Site "${t.site}" is locked. Unlock the site first.`); return; }
   tasks = tasks.filter(t => t.uid !== uid);
+  save(); refresh();
+}
+
+function isSiteLocked(site) { return !!siteLocks[site || 'No Site']; }
+
+function toggleSiteLock(site) {
+  siteLocks[site] = !siteLocks[site];
   save(); refresh();
 }
 
@@ -1570,6 +1580,7 @@ function toggleLock(uid) {
 }
 
 function clearSite(site) {
+  if (isSiteLocked(site)) { alert(`Site "${site}" is locked. Unlock it first.`); return; }
   const count = tasks.filter(t => (t.site || 'No Site') === site).length;
   if (!confirm(`Remove all ${count} task(s) in "${site}"? This cannot be undone.`)) return;
   tasks = tasks.filter(t => (t.site || 'No Site') !== site);
@@ -1932,15 +1943,29 @@ function renderTaskList() {
   const { groups, order } = groupBySite(computed);
   order.forEach(site => {
     const hdr = document.createElement('div');
+    const siteIsLocked = isSiteLocked(site);
     hdr.className = 'task-list-site-header';
     hdr.style.background = getSiteColor(site);
-    hdr.draggable = true;
-    hdr.title = 'Drag to calendar to move all tasks in this site';
+    hdr.style.opacity = siteIsLocked ? '0.82' : '1';
+    hdr.draggable = !siteIsLocked;
+    hdr.title = siteIsLocked ? 'Site is locked' : 'Drag to calendar to move all tasks in this site';
     const siteEsc = site.replace(/'/g, "\\'");
-    hdr.innerHTML = `<span style="display:flex;align-items:center;gap:5px;"><span class="site-drag-handle" title="Drag all tasks">⠿⠿</span>${site}</span>
-      <span style="display:flex;gap:4px;">
-        <button class="btn-duplicate-site" onclick="event.stopPropagation();duplicateSite('${siteEsc}')">&#10064; Duplicate</button>
-        <button class="btn-clear-site"     onclick="clearSite('${siteEsc}')">Clear Site</button>
+    const siteLockIcon  = siteIsLocked ? '&#128274;' : '&#128275;';
+    const siteLockTitle = siteIsLocked ? 'Unlock Site' : 'Lock Site';
+    const disabledAttr  = siteIsLocked ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : '';
+    hdr.innerHTML = `
+      <span style="display:flex;align-items:center;gap:5px;">
+        <span class="site-drag-handle" style="${siteIsLocked ? 'opacity:0.2;cursor:not-allowed;' : ''}" title="${siteIsLocked ? 'Site is locked' : 'Drag all tasks'}">⠿⠿</span>
+        ${siteIsLocked ? '<span style="font-size:11px;">&#128274;</span>' : ''}
+        ${site}
+      </span>
+      <span style="display:flex;gap:4px;align-items:center;">
+        <button class="btn-duplicate-site" onclick="event.stopPropagation();duplicateSite('${siteEsc}')" ${disabledAttr}>&#10064; Duplicate</button>
+        <button class="btn-clear-site"     onclick="event.stopPropagation();clearSite('${siteEsc}')" ${disabledAttr}>Clear Site</button>
+        <button class="btn-duplicate-site" onclick="event.stopPropagation();toggleSiteLock('${siteEsc}')" title="${siteLockTitle}"
+          style="background:rgba(255,255,255,${siteIsLocked ? '0.35' : '0.15'});border-color:rgba(255,255,255,0.5);">
+          ${siteLockIcon}
+        </button>
       </span>`;
     hdr.addEventListener('dragstart', e => siteDragStart(e, site));
     hdr.addEventListener('dragend',   () => siteDragEnd());
@@ -1951,9 +1976,10 @@ function renderTaskList() {
       const startStr   = task.startDate ? formatDate(task.startDate,'short') : '—';
       const endStr     = task.endDate   ? formatDate(task.endDate,  'short') : '—';
       const el = document.createElement('div');
-      el.className = 'task-item' + (task.locked ? ' locked' : '');
+      const effectiveLocked = task.locked || siteIsLocked;
+      el.className = 'task-item' + (effectiveLocked ? ' locked' : '');
       el.style.borderLeft = `4px solid ${teamColor}`;
-      el.draggable = !task.locked;
+      el.draggable = !effectiveLocked;
       el.dataset.id = task.uid;
       const lockBtnClass = task.locked ? 'btn-lock locked' : 'btn-lock';
       const lockBtnTitle = task.locked ? '🔒 Unlock Task' : '🔓 Lock Task';
@@ -1971,14 +1997,14 @@ function renderTaskList() {
           <div class="task-item-dates">${task.startOverride?'&#128204; Fixed: ':''}${startStr} → ${endStr}</div>
         </div>
         <div class="task-item-actions">
-          <button class="${lockBtnClass}" title="${lockBtnTitle}" onclick="toggleLock('${task.uid}')">${lockBtnIcon}</button>
-          <button class="btn-edit"   onclick="startEditTask('${task.uid}')" ${task.locked ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>&#9998;</button>
-          <button class="btn-delete" onclick="deleteTask('${task.uid}')"    ${task.locked ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>&#10005;</button>
+          <button class="${lockBtnClass}" title="${lockBtnTitle}" onclick="toggleLock('${task.uid}')" ${siteIsLocked ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>${lockBtnIcon}</button>
+          <button class="btn-edit"   onclick="startEditTask('${task.uid}')" ${effectiveLocked ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>&#9998;</button>
+          <button class="btn-delete" onclick="deleteTask('${task.uid}')"    ${effectiveLocked ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>&#10005;</button>
         </div>
       `;
 
       el.addEventListener('dragstart', e => {
-        if (task.locked) { e.preventDefault(); return; }
+        if (task.locked || isSiteLocked(task.site)) { e.preventDefault(); return; }
         dragSrcId = task.uid;
         calDragTaskId = task.uid;          // also register for calendar drop zones
         e.dataTransfer.effectAllowed = 'move';
@@ -2116,6 +2142,7 @@ function calDragEnd() {
 }
 
 function siteDragStart(event, site) {
+  if (isSiteLocked(site)) { event.preventDefault(); return; }
   calDragSite = site;
   calDragTaskId = null;
   event.dataTransfer.effectAllowed = 'move';
@@ -2621,6 +2648,7 @@ function save(skipHistory) {
   localStorage.setItem('pm_color_cursor', colorCursor);
   localStorage.setItem('pm_site_colors', JSON.stringify(siteColors));
   localStorage.setItem('pm_site_cursor', siteCursor);
+  localStorage.setItem('pm_site_locks',  JSON.stringify(siteLocks));
   saveHolidays();
 }
 function load() {
@@ -2642,6 +2670,8 @@ function load() {
   if (sc) Object.assign(siteColors, JSON.parse(sc));
   const scc = localStorage.getItem('pm_site_cursor');
   if (scc) siteCursor = parseInt(scc);
+  const sl = localStorage.getItem('pm_site_locks');
+  if (sl) Object.assign(siteLocks, JSON.parse(sl));
   loadHolidays();
 }
 
