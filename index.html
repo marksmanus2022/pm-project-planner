@@ -2573,7 +2573,7 @@ function renderMonthCalendar() {
           onclick="openDayMenu(event,'${dateKey(d)}')">
           <div class="month-date-header">
             <span class="month-date-num${isTod ? ' today-num' : ''}">${d.getDate()}</span>
-            ${hol ? `<span class="month-hol-name" title="${holTip}">: ${hol.name}</span>` : ''}
+            ${hol ? `<span class="month-hol-name" title="${holTip}">${hol.name}</span>` : ''}
           </div>
         </div>`;
       });
