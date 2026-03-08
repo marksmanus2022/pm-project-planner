@@ -263,6 +263,16 @@
       border-radius: 4px; flex-shrink: 0; font-weight: 600;
     }
     .btn-delete:hover { color: white; background: #e53935; border-color: #e53935; }
+    .btn-lock {
+      background: none; border: 1px solid #ddd; color: #bbb;
+      cursor: pointer; font-size: 12px; padding: 2px 6px;
+      border-radius: 4px; flex-shrink: 0;
+    }
+    .btn-lock:hover { color: white; background: #f57c00; border-color: #f57c00; }
+    .btn-lock.locked { color: #f57c00; border-color: #f9ab64; background: #fff8f0; }
+    .btn-lock.locked:hover { background: #f57c00; color: white; }
+    .task-item.locked { background: #fffdf8; }
+    .task-item.locked .drag-handle { opacity: 0.2; cursor: not-allowed; pointer-events: none; }
 
     /* ── MAIN CONTENT ── */
     .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -996,6 +1006,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <div class="popup-meta"  id="popup-task-meta"></div>
   <button class="popup-btn-edit"   id="popup-btn-edit"   style="width:100%;padding:7px;background:#1a73e8;color:white;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:6px;">&#9998; Edit Task</button>
   <button class="popup-btn-delete" id="popup-btn-delete">&#10005; Remove Task</button>
+  <button id="popup-btn-lock" style="width:100%;padding:7px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;margin-top:6px;margin-bottom:2px;border:1px solid #f9ab64;background:#fff8f0;color:#f57c00;">&#128274; Lock Task</button>
   <button class="popup-btn-cancel" onclick="closeTaskPopup()">Cancel</button>
 </div>
 
@@ -1383,6 +1394,7 @@ function startEditTask(uid) {
   closeTaskPopup();
   const task = tasks.find(t => t.uid === uid);
   if (!task) return;
+  if (task.locked) { alert('This task is locked. Unlock it first before editing.'); return; }
   editingTaskId = uid;
 
   // Populate form
@@ -1544,7 +1556,16 @@ function cascadeReschedule(site, fromUid) {
 }
 
 function deleteTask(uid) {
+  const t = tasks.find(t => t.uid === uid);
+  if (t && t.locked) { alert('This task is locked. Unlock it first before deleting.'); return; }
   tasks = tasks.filter(t => t.uid !== uid);
+  save(); refresh();
+}
+
+function toggleLock(uid) {
+  const t = tasks.find(t => t.uid === uid);
+  if (!t) return;
+  t.locked = !t.locked;
   save(); refresh();
 }
 
@@ -1930,28 +1951,34 @@ function renderTaskList() {
       const startStr   = task.startDate ? formatDate(task.startDate,'short') : '—';
       const endStr     = task.endDate   ? formatDate(task.endDate,  'short') : '—';
       const el = document.createElement('div');
-      el.className = 'task-item';
+      el.className = 'task-item' + (task.locked ? ' locked' : '');
       el.style.borderLeft = `4px solid ${teamColor}`;
-      el.draggable = true;
+      el.draggable = !task.locked;
       el.dataset.id = task.uid;
+      const lockBtnClass = task.locked ? 'btn-lock locked' : 'btn-lock';
+      const lockBtnTitle = task.locked ? '🔒 Unlock Task' : '🔓 Lock Task';
+      const lockBtnIcon  = task.locked ? '&#128274;' : '&#128275;';
       el.innerHTML = `
-        <div class="drag-handle" title="Drag to reorder">⠿</div>
+        <div class="drag-handle" title="${task.locked ? 'Task is locked' : 'Drag to reorder'}">⠿</div>
         <div class="task-dot" style="background:${color}"></div>
         <div class="task-item-body">
           <div class="task-team-row">
             <span class="task-team-badge" title="${task.team}">${task.team}</span>
+            ${task.locked ? '<span style="font-size:10px;color:#f57c00;font-weight:700;">&#128274; Locked</span>' : ''}
           </div>
           <div class="task-item-name">${task.id} — ${task.name}${task.planType === 'evaluation' ? ' <span style="font-size:10px;color:#888;font-style:italic;font-weight:400;">(eval)</span>' : ''}</div>
           <div class="task-item-meta"><span style="color:#111;font-weight:700;">${task.duration} day(s)</span> · ${task.duration * (task.shiftsPerDay||1) * 8}h · ${task.shiftsPerDay||1} shift(s)/day · ${task.calDays||0} cal.days</div>
           <div class="task-item-dates">${task.startOverride?'&#128204; Fixed: ':''}${startStr} → ${endStr}</div>
         </div>
         <div class="task-item-actions">
-          <button class="btn-edit"   onclick="startEditTask('${task.uid}')">&#9998;</button>
-          <button class="btn-delete" onclick="deleteTask('${task.uid}')">&#10005;</button>
+          <button class="${lockBtnClass}" title="${lockBtnTitle}" onclick="toggleLock('${task.uid}')">${lockBtnIcon}</button>
+          <button class="btn-edit"   onclick="startEditTask('${task.uid}')" ${task.locked ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>&#9998;</button>
+          <button class="btn-delete" onclick="deleteTask('${task.uid}')"    ${task.locked ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>&#10005;</button>
         </div>
       `;
 
       el.addEventListener('dragstart', e => {
+        if (task.locked) { e.preventDefault(); return; }
         dragSrcId = task.uid;
         calDragTaskId = task.uid;          // also register for calendar drop zones
         e.dataTransfer.effectAllowed = 'move';
@@ -2068,6 +2095,8 @@ let calDragTaskId = null;
 let calDragSite   = null;   // set when dragging a whole site group
 
 function calDragStart(event, taskId) {
+  const t = tasks.find(t => t.uid === taskId);
+  if (t && t.locked) { event.preventDefault(); return; }
   calDragTaskId = taskId;
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', taskId);
@@ -2545,8 +2574,23 @@ function openTaskPopup(event, taskId) {
   document.getElementById('popup-task-name').textContent = `${task.id} — ${task.name}`;
   document.getElementById('popup-task-meta').textContent =
     `${task.team} · ${task.duration} days · ${task.calDays||0} cal. days`;
-  document.getElementById('popup-btn-edit').onclick   = () => startEditTask(taskId);
-  document.getElementById('popup-btn-delete').onclick = () => { closeTaskPopup(); deleteTask(taskId); };
+  const isLocked = !!task.locked;
+  const editBtn   = document.getElementById('popup-btn-edit');
+  const deleteBtn = document.getElementById('popup-btn-delete');
+  const lockBtn   = document.getElementById('popup-btn-lock');
+  editBtn.disabled   = isLocked;
+  editBtn.style.opacity   = isLocked ? '0.35' : '1';
+  editBtn.style.cursor    = isLocked ? 'not-allowed' : 'pointer';
+  deleteBtn.disabled = isLocked;
+  deleteBtn.style.opacity = isLocked ? '0.35' : '1';
+  deleteBtn.style.cursor  = isLocked ? 'not-allowed' : 'pointer';
+  lockBtn.textContent = isLocked ? '🔓 Unlock Task' : '🔒 Lock Task';
+  lockBtn.style.background = isLocked ? '#fff8f0' : '#f5f5f5';
+  lockBtn.style.color      = isLocked ? '#f57c00' : '#555';
+  lockBtn.style.borderColor= isLocked ? '#f9ab64' : '#ddd';
+  editBtn.onclick   = () => startEditTask(taskId);
+  deleteBtn.onclick = () => { closeTaskPopup(); deleteTask(taskId); };
+  lockBtn.onclick   = () => { closeTaskPopup(); toggleLock(taskId); };
   taskPopup.classList.add('show');
   let x = event.clientX+8, y = event.clientY+8;
   if (x+200 > window.innerWidth)  x = event.clientX-208;
