@@ -3492,27 +3492,28 @@ function submitQuickAdd() {
 })();
 
 // ── Exclusive ? tooltip ───────────────────────────────────────────────────────
-(function() {
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest('.exclusive-help');
+  if (!el) return;
   const tip = document.getElementById('excl-tip');
-  document.addEventListener('mouseover', e => {
-    const el = e.target.closest('.exclusive-help');
-    if (!el) return;
-    tip.textContent = el.dataset.tip;
-    tip.style.display = 'block';
-    const r = el.getBoundingClientRect();
-    const tw = 210, th = tip.offsetHeight;
-    let left = r.right + 8;
-    let top  = r.top + (r.height / 2) - (th / 2);
-    if (left + tw > window.innerWidth - 8) left = r.left - tw - 8;
-    if (top < 8) top = 8;
-    if (top + th > window.innerHeight - 8) top = window.innerHeight - th - 8;
-    tip.style.left = left + 'px';
-    tip.style.top  = top  + 'px';
-  });
-  document.addEventListener('mouseout', e => {
-    if (e.target.closest('.exclusive-help')) tip.style.display = 'none';
-  });
-})();
+  if (!tip) return;
+  tip.textContent = el.dataset.tip;
+  tip.style.display = 'block';
+  const r  = el.getBoundingClientRect();
+  const tw = 210, th = tip.offsetHeight;
+  let left = r.right + 8;
+  let top  = r.top + (r.height / 2) - (th / 2);
+  if (left + tw > window.innerWidth - 8) left = r.left - tw - 8;
+  if (top < 8) top = 8;
+  if (top + th > window.innerHeight - 8) top = window.innerHeight - th - 8;
+  tip.style.left = left + 'px';
+  tip.style.top  = top  + 'px';
+});
+document.addEventListener('mouseout', e => {
+  if (!e.target.closest('.exclusive-help')) return;
+  const tip = document.getElementById('excl-tip');
+  if (tip) tip.style.display = 'none';
+});
 
 let _toastTimer = null;
 function showToast(msg) {
