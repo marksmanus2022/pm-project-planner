@@ -2257,8 +2257,6 @@ function renderWeekCalendar() {
   const weekDates = [];
   for (let i=0;i<7;i++) weekDates.push(addCalendarDays(mon,i));
 
-  if (computed.length === 0) { showEmptyState(); return; }
-
   let html = '<div class="week-grid">';
   html += '<div class="week-grid-header"><div class="wgh-label">Task</div>';
   weekDates.forEach(d => {
@@ -2335,8 +2333,6 @@ function renderWeekCalendar() {
 function renderMonthCalendar() {
   const today = new Date(); today.setHours(0,0,0,0);
   const area  = document.getElementById('calendarArea');
-
-  if (computed.length === 0) { showEmptyState(); return; }
 
   // Find the last month needed to show all task end dates
   let lastMonthDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
