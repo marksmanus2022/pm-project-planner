@@ -32,6 +32,24 @@
     /* ── LAYOUT ── */
     .body-layout { display: flex; flex: 1; overflow: hidden; }
 
+    /* ── ICY TASK ── */
+    @keyframes icy-shimmer {
+      0%   { background-position: 200% center; }
+      100% { background-position: -200% center; }
+    }
+    .icy-task {
+      background: linear-gradient(110deg,
+        #cce9f9 0%, #e8f6ff 18%, #ffffff 30%, #aad4ef 45%,
+        #e0f3ff 60%, #b8e0f5 78%, #daf0ff 100%
+      ) !important;
+      background-size: 300% 100% !important;
+      animation: icy-shimmer 5s linear infinite !important;
+      border: 1.5px solid rgba(120, 195, 235, 0.85) !important;
+      color: #0d4a72 !important;
+      box-shadow: 0 0 10px rgba(100,210,255,0.45), inset 0 1px 0 rgba(255,255,255,0.85) !important;
+      text-shadow: 0 0 6px rgba(255,255,255,0.9) !important;
+    }
+
     /* ── PRESENT MODE ── */
     body.present-mode .header  { display: none; }
     body.present-mode .sidebar { display: none; }
@@ -1485,6 +1503,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <div id="tooltip"></div>
 
 <script>
+// ─── ICY TASK ────────────────────────────────────────────────────────────────
+const ICY_TASK_NAMES = ['network fz', 'network nz'];
+function isIcyTask(task) {
+  return ICY_TASK_NAMES.includes((task.name || '').toLowerCase().trim());
+}
+
 // ─── ISO WEEK NUMBER ─────────────────────────────────────────────────────────
 function getISOWeek(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -2688,11 +2712,13 @@ function renderWeekCalendar() {
         const isStart    = task.startDate && isSameDay(d, task.startDate);
         const isEval     = task.planType === 'evaluation';
         const isDblShift = (task.shiftsPerDay || 1) >= 2;
+        const isIcy      = isIcyTask(task);
         let cls = 'task-block';
         if (!prevActive)  cls += ' starts-here';
         if (!nextActive)  cls += ' ends-here';
         if (isEval)       cls += ' evaluation';
         if (isDblShift)   cls += ' double-shift';
+        if (isIcy)        cls += ' icy-task';
         const blockStyle = isEval
           ? `border-color:${color}; color:${color}`
           : `background:${color}`;
@@ -2702,7 +2728,7 @@ function renderWeekCalendar() {
           onclick="openTaskPopup(event,'${task.uid}')">
           ${!prevActive ? `
             <div style="display:flex;align-items:center;justify-content:center;gap:4px;width:100%;">
-              <div class="tb-name" style="overflow:hidden;text-overflow:ellipsis;">${task.site ? task.site + ': ' : ''}${task.name}${isEval?' (prop)':''}</div>
+              <div class="tb-name" style="overflow:hidden;text-overflow:ellipsis;">${isIcy ? '❄️ ' : ''}${task.site ? task.site + ': ' : ''}${task.name}${isEval?' (prop)':''}</div>
               ${isDblShift ? '<span class="tb-shift-badge">2 shifts</span>' : ''}
             </div>
             ${isStart?`<div class="tb-days">${task.duration} days · ${task.duration * (task.shiftsPerDay||1) * 8}h</div>`:''}` : ''}
@@ -2825,9 +2851,11 @@ function renderMonthCalendar() {
           const isEval   = task.planType === 'evaluation';
           const isDblShift = (task.shiftsPerDay || 1) >= 2;
           let barType = (isStart && isEnd) ? 'solo' : isStart ? 'start' : isEnd ? 'end' : 'mid';
+          const isIcy = isIcyTask(task);
           let barCls = 'month-task-bar bar-' + barType;
           if (isEval)     barCls += ' evaluation';
           if (isDblShift) barCls += ' double-shift';
+          if (isIcy)      barCls += ' icy-task';
           const tipData  = makeTipData(task);
           const barStyle = isEval
             ? `grid-column:${firstIdx + 2}/${lastIdx + 3}; border-color:${color}; color:${color}`
@@ -2849,7 +2877,7 @@ function renderMonthCalendar() {
             <span class="month-bar-inner">
               ${arrowL}
               ${beginLabel}
-              <span style="overflow:hidden;text-overflow:ellipsis;">${task.site ? task.site + ': ' : ''}${task.name}${isEval ? ' (prop)' : ''}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;">${isIcy ? '❄️ ' : ''}${task.site ? task.site + ': ' : ''}${task.name}${isEval ? ' (prop)' : ''}</span>
               ${isDblShift ? '<span class="month-bar-badge">2 shifts</span>' : ''}
               ${durBadge}
               ${endLabel}
