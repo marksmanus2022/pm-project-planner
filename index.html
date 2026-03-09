@@ -1146,6 +1146,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <span class="exclusive-help" data-tip="Site's traffic is removed.">?</span>
           </label>
         </div>
+        <div class="exclusive-row">
+          <input type="checkbox" id="f-evaluation" />
+          <label for="f-evaluation">
+            📋 Evaluation
+            <span class="exclusive-help" data-tip="Task is shown as a dashed outline in the calendar (evaluation/dry-run).">?</span>
+          </label>
+        </div>
         <div class="form-btn-row">
           <button class="btn-add" id="btnSubmit" onclick="addTask()">+ Add Task</button>
           <button class="btn-cancel-edit" id="btnCancelEdit" onclick="cancelEdit()">Cancel</button>
@@ -1345,6 +1352,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       <label for="qa-offline">
         📴 Offline
         <span class="exclusive-help" data-tip="Site's traffic is removed.">?</span>
+      </label>
+    </div>
+    <div class="exclusive-row">
+      <input type="checkbox" id="qa-evaluation" />
+      <label for="qa-evaluation">
+        📋 Evaluation
+        <span class="exclusive-help" data-tip="Task is shown as a dashed outline in the calendar (evaluation/dry-run).">?</span>
       </label>
     </div>
 
@@ -1609,8 +1623,9 @@ function addTask() {
   if (!name)             { alert('Please enter a Task Name'); return; }
   if (!shifts || shifts < 1) { alert('Days must be at least 1'); return; }
 
-  const exclusive = document.getElementById('f-exclusive').checked;
-  const offline   = document.getElementById('f-offline').checked;
+  const exclusive   = document.getElementById('f-exclusive').checked;
+  const offline     = document.getElementById('f-offline').checked;
+  const evaluation  = document.getElementById('f-evaluation').checked;
   const deps = [];
 
   if (editingTaskId) {
@@ -1621,7 +1636,9 @@ function addTask() {
       if (tasks.find(t => t.uid !== editingTaskId && t.id === id && t.site === site)) {
         alert(`Task # "${id}" already exists for site "${site}".`); return;
       }
-      tasks[idx] = { ...tasks[idx], id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps, exclusive, offline };
+      const currentPlanType = tasks[idx].planType || 'sequential';
+      const planType = evaluation ? 'evaluation' : (currentPlanType === 'parallel' ? 'parallel' : 'sequential');
+      tasks[idx] = { ...tasks[idx], id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps, exclusive, offline, planType };
     }
     const editedUid  = editingTaskId;
     const editedSite = site;
@@ -1636,7 +1653,7 @@ function addTask() {
       alert(`Task # "${id}" already exists for site "${site}".`); return;
     }
     const uid = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    const newTask = { uid, id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps, planType: 'sequential', exclusive, offline };
+    const newTask = { uid, id, name, duration: shifts, shiftsPerDay, team, site, mode, startOverride, deps, planType: evaluation ? 'evaluation' : 'sequential', exclusive, offline };
     processNewTask(newTask, () => { save(); refresh(); clearFormAfterAdd(site, team); });
     return;
   }
@@ -1703,6 +1720,7 @@ function startEditTask(uid) {
   document.getElementById('f-start-override').value = task.startOverride || '';
   document.getElementById('f-exclusive').checked    = !!task.exclusive;
   document.getElementById('f-offline').checked      = !!task.offline;
+  document.getElementById('f-evaluation').checked   = task.planType === 'evaluation';
 
   // Update form UI to edit mode
   document.getElementById('taskForm').classList.add('editing');
@@ -1778,6 +1796,7 @@ function clearFormAfterAdd(lastSite, lastTeam) {
   document.getElementById('f-start-override').value  = '';
   document.getElementById('f-exclusive').checked     = false;
   document.getElementById('f-offline').checked       = false;
+  document.getElementById('f-evaluation').checked    = false;
   // Pre-fill site and team from the task just saved
   document.getElementById('f-site').value           = lastSite || '';
   document.getElementById('f-team').value           = lastTeam || '';
@@ -3725,8 +3744,9 @@ function openQuickAdd(dateStr) {
   document.getElementById('qa-spd').value      = '1';
   document.getElementById('qa-mode').value     = 'workdays';
   document.getElementById('qa-team').value     = '';
-  document.getElementById('qa-exclusive').checked = false;
-  document.getElementById('qa-offline').checked   = false;
+  document.getElementById('qa-exclusive').checked   = false;
+  document.getElementById('qa-offline').checked     = false;
+  document.getElementById('qa-evaluation').checked  = false;
 
   document.getElementById('quick-add-overlay').classList.add('show');
   setTimeout(() => document.getElementById('qa-site').focus(), 50);
@@ -3777,12 +3797,13 @@ function submitQuickAdd() {
     alert(`Task # "${id}" already exists for site "${site}".`); return;
   }
 
-  const exclusive = document.getElementById('qa-exclusive').checked;
-  const offline   = document.getElementById('qa-offline').checked;
+  const exclusive   = document.getElementById('qa-exclusive').checked;
+  const offline     = document.getElementById('qa-offline').checked;
+  const evaluation  = document.getElementById('qa-evaluation').checked;
 
   const uid     = Date.now().toString(36) + Math.random().toString(36).slice(2);
   const newTask = { uid, id, name, duration, shiftsPerDay: spd, team, site,
-                    mode, startOverride: start, deps: [], planType: 'sequential', exclusive, offline };
+                    mode, startOverride: start, deps: [], planType: evaluation ? 'evaluation' : 'sequential', exclusive, offline };
 
   closeQuickAdd();
   processNewTask(newTask, () => { save(); refresh(); });
