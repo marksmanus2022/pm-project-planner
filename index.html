@@ -2771,7 +2771,7 @@ function renderMonthCalendar() {
           const barStyle = isEval
             ? `grid-column:${firstIdx + 2}/${lastIdx + 3}; border-color:${color}; color:${color}`
             : `grid-column:${firstIdx + 2}/${lastIdx + 3}; background:${color}`;
-          const arrowL = (barType === 'end'  || barType === 'mid') ? '<span class="bar-arrow bar-arrow-l">&#9664;</span>' : '';
+          const arrowL = (barType === 'end'  || barType === 'mid') ? '<span class="bar-arrow bar-arrow-l">&#9654;</span>' : '';
           const arrowR = (barType === 'start'|| barType === 'mid') ? '<span class="bar-arrow bar-arrow-r">&#9654;</span>' : '';
           const beginLabel = barType === 'start' ? '<span class="bar-begin-label">Task Begin</span>' : '';
           const endLabel   = barType === 'end'   ? '<span class="bar-end-label">End</span>' : '';
