@@ -2571,7 +2571,7 @@ function renderWeekCalendar() {
     const wghTip = wghHol ? [wghHol.name, wghHol.country, wghHol.comment].filter(Boolean).join(' \u2014 ') : '';
     const wghCmt = dayComments[dateKey(d)];
     const wghCmtLocked = wghCmt && commentLocks[dateKey(d)];
-    const wghCmtDot = wghCmt ? `<span class="day-comment-dot" onclick="openCommentViewPopup(event,'${dateKey(d)}')" onmouseenter="showCommentTooltip(event,${JSON.stringify(wghCmt)})" onmouseleave="hideTooltip()">${wghCmtLocked ? '&#128274;' : '&#128172;'}</span>` : '';
+    const wghCmtDot = wghCmt ? `<span class="day-comment-dot" data-cmt="${wghCmt.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" onclick="openCommentViewPopup(event,'${dateKey(d)}')" onmouseenter="showCommentTooltip(event,this.dataset.cmt)" onmouseleave="hideTooltip()">${wghCmtLocked ? '&#128274;' : '&#128172;'}</span>` : '';
     html += `<div class="wgh-day${isWE?' weekend':''}${isTod?' is-today':''}${wghHol?' holiday-day':''}"
       title="${wghTip}"
       ondragover="calDragOver(event)"
@@ -2714,7 +2714,7 @@ function renderMonthCalendar() {
         const holLbl = hol ? `<div class="holiday-cell-label" title="${holTip}">&#127956; ${hol.name}${hol.country?' ('+hol.country+')':''}</div>` : '';
         const cmt = dayComments[dateKey(d)];
         const cmtLocked = cmt && commentLocks[dateKey(d)];
-        const cmtDot = cmt ? `<span class="day-comment-dot" onclick="openCommentViewPopup(event,'${dateKey(d)}')" onmouseenter="showCommentTooltip(event,${JSON.stringify(cmt)})" onmouseleave="hideTooltip()">${cmtLocked ? '&#128274;' : '&#128172;'}</span>` : '';
+        const cmtDot = cmt ? `<span class="day-comment-dot" data-cmt="${cmt.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" onclick="openCommentViewPopup(event,'${dateKey(d)}')" onmouseenter="showCommentTooltip(event,this.dataset.cmt)" onmouseleave="hideTooltip()">${cmtLocked ? '&#128274;' : '&#128172;'}</span>` : '';
         html += `<div class="month-date-cell${!inMonth ? ' other-month' : ''}${isWE ? ' weekend' : ''}${holCls}"
           ondragover="calDragOver(event)"
           ondrop="calDrop(event,'${dateKey(d)}')"
