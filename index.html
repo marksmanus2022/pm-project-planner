@@ -3060,6 +3060,8 @@ function buildProjectPayload() {
     projectStart: dateKey(projectStart),
     tasks,
     holidays,
+    dayComments,
+    commentLocks,
     teamColors,
     colorCursor,
     siteColors,
@@ -3167,7 +3169,9 @@ function applyProjectPayload(text, filename, handle) {
   if (payload.colorCursor != null) colorCursor = payload.colorCursor;
   if (payload.siteColors)   Object.assign(siteColors,  payload.siteColors);
   if (payload.siteCursor != null)  siteCursor  = payload.siteCursor;
-  if (Array.isArray(payload.holidays)) holidays = payload.holidays;
+  if (Array.isArray(payload.holidays))              holidays      = payload.holidays;
+  if (payload.dayComments  && typeof payload.dayComments  === 'object') dayComments  = payload.dayComments;
+  if (payload.commentLocks && typeof payload.commentLocks === 'object') commentLocks = payload.commentLocks;
 
   document.getElementById('projectStartInput').value = dateKey(projectStart);
   currentMonth   = new Date(projectStart.getFullYear(), projectStart.getMonth(), 1);
