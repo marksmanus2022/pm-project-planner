@@ -419,7 +419,7 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
     .month-dow-header {
-      display: grid; grid-template-columns: repeat(7, 1fr);
+      display: grid; grid-template-columns: 28px repeat(7, 1fr);
       background: #f8f9fa; border-bottom: 2px solid #e0e0e0;
     }
     .month-dow-cell {
@@ -433,7 +433,17 @@
     .month-week-section { border-bottom: 1px solid #e0e0e0; }
     .month-week-section:last-child { border-bottom: none; }
 
-    .month-date-row { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .month-date-row { display: grid; grid-template-columns: 28px repeat(7, 1fr); }
+    .month-week-num {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; color: #aaa; letter-spacing: 0.3px;
+      border-right: 1px solid #f0f0f0;
+    }
+    .month-week-num-header {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; text-transform: uppercase; color: #bbb; letter-spacing: 0.5px;
+      border-right: 1px solid #e0e0e0;
+    }
     .month-date-cell {
       border-right: 1px solid #f0f0f0; padding: 5px 7px;
       min-height: 34px; background: white;
@@ -473,7 +483,7 @@
 
     /* Task bars inside month */
     .month-task-bars {
-      display: grid; grid-template-columns: repeat(7, 1fr);
+      display: grid; grid-template-columns: 28px repeat(7, 1fr);
       grid-auto-flow: row dense;
       grid-auto-rows: 20px;
       gap: 2px 0; padding: 2px 2px 5px;
@@ -1399,6 +1409,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <div id="tooltip"></div>
 
 <script>
+// ─── ISO WEEK NUMBER ─────────────────────────────────────────────────────────
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let tasks         = [];
 let computed      = [];
@@ -2287,8 +2306,8 @@ function renderTaskList() {
           <div class="task-team-row">
             <span class="task-team-badge" title="${task.team}">${task.team}</span>
             ${task.locked ? '<span style="font-size:10px;color:#f57c00;font-weight:700;">&#128274; Locked</span>' : ''}
-            ${task.exclusive ? '<span class="exclusive-badge">⛔ Exclusive</span>' : ''}
-            ${task.offline  ? '<span class="exclusive-badge" style="color:#1565c0;background:#e3f2fd;border-color:#90caf9;">📴 Offline</span>' : ''}
+            ${task.exclusive ? '<span class="exclusive-badge" title="Exclusive">⛔</span>' : ''}
+            ${task.offline  ? '<span class="exclusive-badge" style="color:#1565c0;background:#e3f2fd;border-color:#90caf9;" title="Offline">📴</span>' : ''}
           </div>
           <div class="task-item-name">${task.id} — ${task.name}${task.planType === 'evaluation' ? ' <span style="font-size:10px;color:#888;font-style:italic;font-weight:400;">(eval)</span>' : ''}</div>
           <div class="task-item-meta"><span style="color:#111;font-weight:700;">${task.duration} day(s)</span> · ${task.duration * (task.shiftsPerDay||1) * 8}h · ${task.shiftsPerDay||1} shift(s)/day · ${task.calDays||0} cal.days</div>
@@ -2666,6 +2685,7 @@ function renderMonthCalendar() {
 
     // Day-of-week header
     html += '<div class="month-dow-header">';
+    html += '<div class="month-week-num-header">Wk</div>';
     DOW_SHORT.forEach((d, i) => {
       html += `<div class="month-dow-cell${i >= 5 ? ' weekend' : ''}">${d}</div>`;
     });
@@ -2680,6 +2700,7 @@ function renderMonthCalendar() {
 
       // Date number row
       html += '<div class="month-date-row">';
+      html += `<div class="month-week-num">W${getISOWeek(weekMon)}</div>`;
       weekDates.forEach(d => {
         const inMonth = d.getMonth() === month;
         const isWE    = isWeekend(d);
@@ -2726,8 +2747,8 @@ function renderMonthCalendar() {
           if (isDblShift) barCls += ' double-shift';
           const tipData  = makeTipData(task);
           const barStyle = isEval
-            ? `grid-column:${firstIdx + 1}/${lastIdx + 2}; border-color:${color}; color:${color}`
-            : `grid-column:${firstIdx + 1}/${lastIdx + 2}; background:${color}`;
+            ? `grid-column:${firstIdx + 2}/${lastIdx + 3}; border-color:${color}; color:${color}`
+            : `grid-column:${firstIdx + 2}/${lastIdx + 3}; background:${color}`;
           const arrowL = (barType === 'end'  || barType === 'mid') ? '<span class="bar-arrow bar-arrow-l">&#9664;</span>' : '';
           const arrowR = (barType === 'start'|| barType === 'mid') ? '<span class="bar-arrow bar-arrow-r">&#9654;</span>' : '';
           const beginLabel = (barType === 'start' || barType === 'solo') ? '<span class="bar-begin-label">Task Begin</span>' : '';
