@@ -2571,7 +2571,7 @@ function renderWeekCalendar() {
     const wghTip = wghHol ? [wghHol.name, wghHol.country, wghHol.comment].filter(Boolean).join(' \u2014 ') : '';
     const wghCmt = dayComments[dateKey(d)];
     const wghCmtLocked = wghCmt && commentLocks[dateKey(d)];
-    const wghCmtDot = wghCmt ? `<span class="day-comment-dot" data-cmt="${wghCmt.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" onclick="openCommentViewPopup(event,'${dateKey(d)}')" onmouseenter="showCommentTooltip(event,this.dataset.cmt)" onmouseleave="hideTooltip()">${wghCmtLocked ? '&#128274;' : '&#128172;'}</span>` : '';
+    const wghCmtDot = wghCmt ? `<span class="day-comment-dot" data-cmt="${wghCmt.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" onclick="openCommentViewPopup(event,'${dateKey(d)}')">${wghCmtLocked ? '&#128274;' : '&#128172;'}</span>` : '';
     html += `<div class="wgh-day${isWE?' weekend':''}${isTod?' is-today':''}${wghHol?' holiday-day':''}"
       title="${wghTip}"
       ondragover="calDragOver(event)"
@@ -2714,7 +2714,7 @@ function renderMonthCalendar() {
         const holLbl = hol ? `<div class="holiday-cell-label" title="${holTip}">&#127956; ${hol.name}${hol.country?' ('+hol.country+')':''}</div>` : '';
         const cmt = dayComments[dateKey(d)];
         const cmtLocked = cmt && commentLocks[dateKey(d)];
-        const cmtDot = cmt ? `<span class="day-comment-dot" data-cmt="${cmt.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" onclick="openCommentViewPopup(event,'${dateKey(d)}')" onmouseenter="showCommentTooltip(event,this.dataset.cmt)" onmouseleave="hideTooltip()">${cmtLocked ? '&#128274;' : '&#128172;'}</span>` : '';
+        const cmtDot = cmt ? `<span class="day-comment-dot" data-cmt="${cmt.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" onclick="openCommentViewPopup(event,'${dateKey(d)}')">${cmtLocked ? '&#128274;' : '&#128172;'}</span>` : '';
         html += `<div class="month-date-cell${!inMonth ? ' other-month' : ''}${isWE ? ' weekend' : ''}${holCls}"
           ondragover="calDragOver(event)"
           ondrop="calDrop(event,'${dateKey(d)}')"
@@ -2930,6 +2930,13 @@ function showTooltip(event, el) {
 }
 function hideTooltip() { tooltip.classList.remove('show'); }
 document.addEventListener('mousemove', e => { if (tooltip.classList.contains('show')) moveTooltip(e); });
+document.addEventListener('mouseover', e => {
+  const dot = e.target.closest('.day-comment-dot');
+  if (dot && dot.dataset.cmt) showCommentTooltip(e, dot.dataset.cmt);
+});
+document.addEventListener('mouseout', e => {
+  if (e.target.closest('.day-comment-dot')) hideTooltip();
+});
 function moveTooltip(e) {
   let x = e.clientX+14, y = e.clientY+14;
   if (x+240 > window.innerWidth)  x = e.clientX-248;
