@@ -3976,6 +3976,7 @@ function enterPresentMode() {
   _penCanvas.width  = window.innerWidth;
   _penCanvas.height = window.innerHeight;
   document.body.classList.add('present-mode');
+  activateHand();
   if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
 }
 function exitPresentMode() {
@@ -3996,19 +3997,18 @@ function setPenColor(color, btn) {
   document.querySelectorAll('.pen-color-btn').forEach(b => b.classList.remove('selected'));
   if (btn) btn.classList.add('selected');
 }
-function togglePen() {
-  if (document.body.classList.contains('pen-active')) deactivatePen();
-  else activatePen();
+function activateHand() {
+  document.body.classList.remove('pen-active');
+  document.getElementById('hand-btn').classList.add('active');
+  document.getElementById('pen-toggle-btn').classList.remove('active');
+  _penDown = false;
 }
 function activatePen() {
   document.body.classList.add('pen-active');
   document.getElementById('pen-toggle-btn').classList.add('active');
+  document.getElementById('hand-btn').classList.remove('active');
 }
-function deactivatePen() {
-  document.body.classList.remove('pen-active');
-  document.getElementById('pen-toggle-btn').classList.remove('active');
-  _penDown = false;
-}
+function deactivatePen() { activateHand(); }
 function clearPenCanvas() {
   if (_penCtx) _penCtx.clearRect(0, 0, _penCanvas.width, _penCanvas.height);
 }
@@ -4024,7 +4024,8 @@ function clearPenCanvas() {
 <canvas id="present-canvas"></canvas>
 
 <div id="present-toolbar">
-  <button class="pt-btn" id="pen-toggle-btn" onclick="togglePen()">✏️ Pen</button>
+  <button class="pt-btn active" id="hand-btn" onclick="activateHand()" title="Scroll / interact">🖐 Scroll</button>
+  <button class="pt-btn" id="pen-toggle-btn" onclick="activatePen()" title="Draw annotations">✏️ Pen</button>
   <div class="pen-options">
     <div class="pt-sep"></div>
     <button class="pen-color-btn selected" style="background:#ff3b3b;" onclick="setPenColor('#ff3b3b',this)" title="Red"></button>
