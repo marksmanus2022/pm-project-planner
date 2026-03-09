@@ -3926,10 +3926,56 @@ function showToast(msg) {
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
 
-// ─── PRESENT MODE ─────────────────────────────────────────────────────────────
+// ─── PRESENT MODE + PEN ───────────────────────────────────────────────────────
+let _penCanvas = null, _penCtx = null;
+let penSize = 5, _penColor = '#ff3b3b', _penDown = false, _penLX = 0, _penLY = 0;
+
+function _initPen() {
+  if (_penCanvas) return;          // already set up
+  _penCanvas = document.getElementById('present-canvas');
+  _penCtx    = _penCanvas.getContext('2d');
+
+  function _pos(e) {
+    return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+                     : { x: e.clientX, y: e.clientY };
+  }
+  function _draw(e) {
+    if (!_penDown) return;
+    const p = _pos(e);
+    _penCtx.beginPath();
+    _penCtx.moveTo(_penLX, _penLY);
+    _penCtx.lineTo(p.x, p.y);
+    _penCtx.strokeStyle = _penColor;
+    _penCtx.lineWidth   = penSize;
+    _penCtx.lineCap     = 'round';
+    _penCtx.lineJoin    = 'round';
+    _penCtx.stroke();
+    _penLX = p.x; _penLY = p.y;
+  }
+  _penCanvas.addEventListener('mousedown',  e => { _penDown = true; const p = _pos(e); _penLX = p.x; _penLY = p.y; });
+  _penCanvas.addEventListener('mousemove',  _draw);
+  _penCanvas.addEventListener('mouseup',    () => _penDown = false);
+  _penCanvas.addEventListener('mouseleave', () => _penDown = false);
+  _penCanvas.addEventListener('touchstart', e => { e.preventDefault(); _penDown = true; const p = _pos(e); _penLX = p.x; _penLY = p.y; }, { passive: false });
+  _penCanvas.addEventListener('touchmove',  e => { e.preventDefault(); _draw(e); }, { passive: false });
+  _penCanvas.addEventListener('touchend',   () => _penDown = false);
+
+  window.addEventListener('resize', () => {
+    if (!document.body.classList.contains('present-mode')) return;
+    // Resize without losing content
+    const tmp = document.createElement('canvas');
+    tmp.width = _penCanvas.width; tmp.height = _penCanvas.height;
+    tmp.getContext('2d').drawImage(_penCanvas, 0, 0);
+    _penCanvas.width = window.innerWidth; _penCanvas.height = window.innerHeight;
+    _penCtx.drawImage(tmp, 0, 0);
+  });
+}
+
 function enterPresentMode() {
+  _initPen();
+  _penCanvas.width  = window.innerWidth;
+  _penCanvas.height = window.innerHeight;
   document.body.classList.add('present-mode');
-  resizePenCanvas();
   if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
 }
 function exitPresentMode() {
@@ -3944,23 +3990,6 @@ document.addEventListener('keydown', e => {
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) { deactivatePen(); clearPenCanvas(); document.body.classList.remove('present-mode'); }
 });
-
-// ─── PRESENTATION PEN ─────────────────────────────────────────────────────────
-const _penCanvas = document.getElementById('present-canvas');
-const _penCtx    = _penCanvas.getContext('2d');
-let penSize  = 5;
-let _penColor = '#ff3b3b';
-let _penDown  = false;
-let _penLX = 0, _penLY = 0;
-
-function resizePenCanvas() {
-  // Preserve drawn content across resize
-  const img = _penCtx.getImageData(0, 0, _penCanvas.width, _penCanvas.height);
-  _penCanvas.width  = window.innerWidth;
-  _penCanvas.height = window.innerHeight;
-  _penCtx.putImageData(img, 0, 0);
-}
-window.addEventListener('resize', () => { if (document.body.classList.contains('present-mode')) resizePenCanvas(); });
 
 function setPenColor(color, btn) {
   _penColor = color;
@@ -3981,45 +4010,8 @@ function deactivatePen() {
   _penDown = false;
 }
 function clearPenCanvas() {
-  _penCtx.clearRect(0, 0, _penCanvas.width, _penCanvas.height);
+  if (_penCtx) _penCtx.clearRect(0, 0, _penCanvas.width, _penCanvas.height);
 }
-
-function _penPos(e) {
-  if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  return { x: e.clientX, y: e.clientY };
-}
-_penCanvas.addEventListener('mousedown',  e => { _penDown = true; const p = _penPos(e); _penLX = p.x; _penLY = p.y; });
-_penCanvas.addEventListener('mousemove',  e => {
-  if (!_penDown) return;
-  const p = _penPos(e);
-  _penCtx.beginPath();
-  _penCtx.moveTo(_penLX, _penLY);
-  _penCtx.lineTo(p.x, p.y);
-  _penCtx.strokeStyle = _penColor;
-  _penCtx.lineWidth   = penSize;
-  _penCtx.lineCap     = 'round';
-  _penCtx.lineJoin    = 'round';
-  _penCtx.stroke();
-  _penLX = p.x; _penLY = p.y;
-});
-_penCanvas.addEventListener('mouseup',    () => _penDown = false);
-_penCanvas.addEventListener('mouseleave', () => _penDown = false);
-_penCanvas.addEventListener('touchstart', e => { e.preventDefault(); _penDown = true; const p = _penPos(e); _penLX = p.x; _penLY = p.y; }, { passive: false });
-_penCanvas.addEventListener('touchmove',  e => {
-  e.preventDefault();
-  if (!_penDown) return;
-  const p = _penPos(e);
-  _penCtx.beginPath();
-  _penCtx.moveTo(_penLX, _penLY);
-  _penCtx.lineTo(p.x, p.y);
-  _penCtx.strokeStyle = _penColor;
-  _penCtx.lineWidth   = penSize;
-  _penCtx.lineCap     = 'round';
-  _penCtx.lineJoin    = 'round';
-  _penCtx.stroke();
-  _penLX = p.x; _penLY = p.y;
-}, { passive: false });
-_penCanvas.addEventListener('touchend', () => _penDown = false);
 </script>
 
 <div id="excl-tip"></div>
