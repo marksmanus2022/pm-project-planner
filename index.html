@@ -32,6 +32,27 @@
     /* ── LAYOUT ── */
     .body-layout { display: flex; flex: 1; overflow: hidden; }
 
+    /* ── PRESENT MODE ── */
+    body.present-mode .header  { display: none; }
+    body.present-mode .sidebar { display: none; }
+    body.present-mode .nav-bar { display: none; }
+    body.present-mode .legend-bar { display: none; }
+    body.present-mode .body-layout { height: 100vh; }
+    body.present-mode .calendar-area { border-radius: 0; }
+    #present-hint {
+      position: fixed; bottom: 18px; right: 22px; z-index: 99999;
+      background: rgba(0,0,0,0.55); color: white;
+      font-size: 11px; padding: 5px 11px; border-radius: 20px;
+      pointer-events: none; display: none; letter-spacing: 0.3px;
+    }
+    body.present-mode #present-hint { display: block; }
+    .btn-present {
+      background: rgba(255,255,255,0.15); color: white;
+      border: 1px solid rgba(255,255,255,0.35); border-radius: 4px;
+      padding: 4px 10px; font-size: 12px; cursor: pointer; flex-shrink: 0;
+    }
+    .btn-present:hover { background: rgba(255,255,255,0.28); }
+
     /* ── LEFT SIDEBAR ── */
     .sidebar {
       width: 272px; background: white;
@@ -1039,6 +1060,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <button id="btn-redo" class="btn-file btn-undoredo" onclick="redo()" disabled title="Redo (Ctrl+Y)">Redo &#8594;</button>
   <div class="header-divider"></div>
   <button class="btn-export" onclick="exportToExcel()">&#8595; Export Excel</button>
+  <div class="header-divider"></div>
+  <button class="btn-present" onclick="enterPresentMode()" title="Present mode — fullscreen calendar (ESC to exit)">&#9654; Present</button>
   <span class="header-label">Project Start</span>
   <input type="date" id="projectStartInput" />
 </div>
@@ -3864,6 +3887,22 @@ function showToast(msg) {
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
+
+// ─── PRESENT MODE ─────────────────────────────────────────────────────────────
+function enterPresentMode() {
+  document.body.classList.add('present-mode');
+  if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+}
+function exitPresentMode() {
+  document.body.classList.remove('present-mode');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('present-mode')) exitPresentMode();
+});
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) document.body.classList.remove('present-mode');
+});
 </script>
 
 <div id="excl-tip"></div>
@@ -3871,5 +3910,6 @@ function showToast(msg) {
   <span class="toast-icon">🔒</span>
   <span class="toast-msg"></span>
 </div>
+<div id="present-hint">Press ESC to exit presentation</div>
 </body>
 </html>
