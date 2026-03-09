@@ -558,7 +558,7 @@
       border-radius: 4px;
     }
 
-    /* Evaluation plan — no fill, dashed border */
+    /* Proposed plan — no fill, dashed border */
     .month-task-bar.evaluation {
       background: transparent !important;
       border: 2px dashed;
@@ -1149,8 +1149,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <div class="exclusive-row">
           <input type="checkbox" id="f-evaluation" />
           <label for="f-evaluation">
-            📋 Evaluation
-            <span class="exclusive-help" data-tip="Task is shown as a dashed outline in the calendar (evaluation/dry-run).">?</span>
+            📋 Proposed
+            <span class="exclusive-help" data-tip="Task is shown as a dashed outline in the calendar (proposed/dry-run).">?</span>
           </label>
         </div>
         <div class="form-btn-row">
@@ -1357,8 +1357,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div class="exclusive-row">
       <input type="checkbox" id="qa-evaluation" />
       <label for="qa-evaluation">
-        📋 Evaluation
-        <span class="exclusive-help" data-tip="Task is shown as a dashed outline in the calendar (evaluation/dry-run).">?</span>
+        📋 Proposed
+        <span class="exclusive-help" data-tip="Task is shown as a dashed outline in the calendar (proposed/dry-run).">?</span>
       </label>
     </div>
 
@@ -1403,7 +1403,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       Parallel Plan &nbsp;&#8212;&nbsp; show as additional block (filled)
     </button>
     <button class="plan-type-btn evaluation"  onclick="confirmPlanType('evaluation')">
-      Evaluation Plan &nbsp;&#8212;&nbsp; show as additional block (dashed, no fill)
+      Proposed Plan &nbsp;&#8212;&nbsp; show as additional block (dashed, no fill)
     </button>
     <button class="plan-type-cancel"          onclick="cancelPlanType()">Cancel</button>
   </div>
@@ -2331,7 +2331,7 @@ function renderTaskList() {
             ${task.exclusive ? '<span class="exclusive-badge" title="Exclusive">⛔</span>' : ''}
             ${task.offline  ? '<span class="exclusive-badge" style="color:#1565c0;background:#e3f2fd;border-color:#90caf9;" title="Offline">📴</span>' : ''}
           </div>
-          <div class="task-item-name">${task.id} — ${task.name}${task.planType === 'evaluation' ? ' <span style="font-size:10px;color:#888;font-style:italic;font-weight:400;">(eval)</span>' : ''}</div>
+          <div class="task-item-name">${task.id} — ${task.name}${task.planType === 'evaluation' ? ' <span style="font-size:10px;color:#888;font-style:italic;font-weight:400;">(prop)</span>' : ''}</div>
           <div class="task-item-meta"><span style="color:#111;font-weight:700;">${task.duration} day(s)</span> · ${task.duration * (task.shiftsPerDay||1) * 8}h · ${task.shiftsPerDay||1} shift(s)/day · ${task.calDays||0} cal.days</div>
           <div class="task-item-dates">${task.startOverride?'&#128204; Fixed: ':''}${startStr} → ${endStr}</div>
         </div>
@@ -2450,9 +2450,9 @@ function renderLegend() {
       <div style="width:28px;height:12px;border-radius:3px;background:#888;background-image:linear-gradient(to bottom,transparent calc(50% - 1px),rgba(255,255,255,0.6) calc(50% - 1px),rgba(255,255,255,0.6) calc(50% + 1px),transparent calc(50% + 1px));"></div>
       <span style="color:#555;">= 2 shifts/day</span>
     </div>`;
-    if (hasEval) html += `<div class="legend-item" title="Dashed border = evaluation plan">
+    if (hasEval) html += `<div class="legend-item" title="Dashed border = proposed plan">
       <div style="width:28px;height:12px;border-radius:3px;border:2px dashed #888;background:transparent;"></div>
-      <span style="color:#555;font-style:italic;">= evaluation</span>
+      <span style="color:#555;font-style:italic;">= proposed</span>
     </div>`;
   }
 
@@ -2641,7 +2641,7 @@ function renderWeekCalendar() {
           onclick="openTaskPopup(event,'${task.uid}')">
           ${!prevActive ? `
             <div style="display:flex;align-items:center;justify-content:center;gap:4px;width:100%;">
-              <div class="tb-name" style="overflow:hidden;text-overflow:ellipsis;">${task.site ? task.site + ': ' : ''}${task.name}${isEval?' (eval)':''}</div>
+              <div class="tb-name" style="overflow:hidden;text-overflow:ellipsis;">${task.site ? task.site + ': ' : ''}${task.name}${isEval?' (prop)':''}</div>
               ${isDblShift ? '<span class="tb-shift-badge">2 shifts</span>' : ''}
             </div>
             ${isStart?`<div class="tb-days">${task.duration} days · ${task.duration * (task.shiftsPerDay||1) * 8}h</div>`:''}` : ''}
@@ -2788,7 +2788,7 @@ function renderMonthCalendar() {
             <span class="month-bar-inner">
               ${arrowL}
               ${beginLabel}
-              <span style="overflow:hidden;text-overflow:ellipsis;">${task.site ? task.site + ': ' : ''}${task.name}${isEval ? ' (eval)' : ''}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;">${task.site ? task.site + ': ' : ''}${task.name}${isEval ? ' (prop)' : ''}</span>
               ${isDblShift ? '<span class="month-bar-badge">2 shifts</span>' : ''}
               ${durBadge}
               ${endLabel}
@@ -2844,7 +2844,7 @@ function renderOverview() {
         if (!dateDots[k]) dateDots[k] = [];
         const key = color + (isEval ? '_eval' : '');
         if (!dateDots[k].find(x => x.key === key))
-          dateDots[k].push({ color, label: `${task.id} ${task.name}${isEval?' (eval)':''}`, isEval, key });
+          dateDots[k].push({ color, label: `${task.id} ${task.name}${isEval?' (prop)':''}`, isEval, key });
       }
       d = addCalendarDays(d, 1);
     }
@@ -3341,7 +3341,7 @@ async function exportToExcel() {
           const color   = getSiteColor(task.site || 'No Site');
           const isEval  = task.planType === 'evaluation';
           const isDbl   = (task.shiftsPerDay || 1) >= 2;
-          const label   = `${task.site ? task.site+': ' : ''}${task.name}${isDbl?' [2 shifts]':''}${isEval?' (eval)':''}`;
+          const label   = `${task.site ? task.site+': ' : ''}${task.name}${isDbl?' [2 shifts]':''}${isEval?' (prop)':''}`;
           if (firstIdx !== lastIdx) ws.mergeCells(taskRow.number, firstIdx+1, taskRow.number, lastIdx+1);
           const barCell = ws.getCell(taskRow.number, firstIdx + 1);
           barCell.value     = label;
@@ -3414,7 +3414,7 @@ async function exportToExcel() {
       const isDbl  = (task.shiftsPerDay || 1) >= 2;
       const startStr = task.startDate ? formatDate(task.startDate, 'short') : '—';
       const endStr   = task.endDate   ? formatDate(task.endDate,   'short') : '—';
-      const planLabel = isEval ? 'Evaluation' : (task.planType === 'parallel' ? 'Parallel' : 'Sequential');
+      const planLabel = isEval ? 'Proposed' : (task.planType === 'parallel' ? 'Parallel' : 'Sequential');
       const row = ws2.addRow([
         task.site || 'No Site',
         task.id,
