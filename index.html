@@ -2773,8 +2773,8 @@ function renderMonthCalendar() {
             : `grid-column:${firstIdx + 2}/${lastIdx + 3}; background:${color}`;
           const arrowL = (barType === 'end'  || barType === 'mid') ? '<span class="bar-arrow bar-arrow-l">&#9664;</span>' : '';
           const arrowR = (barType === 'start'|| barType === 'mid') ? '<span class="bar-arrow bar-arrow-r">&#9654;</span>' : '';
-          const beginLabel = (barType === 'start' || barType === 'solo') ? '<span class="bar-begin-label">Task Begin</span>' : '';
-          const endLabel   = (barType === 'end'   || barType === 'solo') ? '<span class="bar-end-label">End</span>' : '';
+          const beginLabel = barType === 'start' ? '<span class="bar-begin-label">Task Begin</span>' : '';
+          const endLabel   = barType === 'end'   ? '<span class="bar-end-label">End</span>' : '';
           const durBadge   = `<span class="month-bar-badge month-bar-dur">${task.duration}d</span>`;
           const calBarDraggable = !task.locked && !isSiteLocked(task.site);
           html += `<div class="${barCls}"
