@@ -46,6 +46,44 @@
       pointer-events: none; display: none; letter-spacing: 0.3px;
     }
     body.present-mode #present-hint { display: block; }
+
+    /* ── PRESENTATION CANVAS ── */
+    #present-canvas {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: 9990; pointer-events: none; display: none;
+    }
+    body.present-mode #present-canvas { display: block; }
+    body.present-mode.pen-active #present-canvas { pointer-events: all; cursor: crosshair; }
+
+    /* ── PRESENTATION TOOLBAR ── */
+    #present-toolbar {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      z-index: 99998; display: none;
+      background: rgba(22,22,22,0.88); backdrop-filter: blur(6px);
+      border-radius: 32px; padding: 7px 16px;
+      align-items: center; gap: 10px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+    }
+    body.present-mode #present-toolbar { display: flex; }
+    #present-toolbar .pt-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.2); }
+    #present-toolbar .pt-btn {
+      background: rgba(255,255,255,0.12); color: white; border: none;
+      border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer;
+      white-space: nowrap; transition: background 0.15s;
+    }
+    #present-toolbar .pt-btn:hover { background: rgba(255,255,255,0.25); }
+    #present-toolbar .pt-btn.active { background: white; color: #222; }
+    .pen-color-btn {
+      width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3);
+      cursor: pointer; flex-shrink: 0; transition: transform 0.1s, border-color 0.1s;
+    }
+    .pen-color-btn:hover { transform: scale(1.15); }
+    .pen-color-btn.selected { border-color: white; transform: scale(1.2); }
+    #pen-size-slider {
+      width: 70px; accent-color: white; cursor: pointer; vertical-align: middle;
+    }
+    .pen-options { display: flex; align-items: center; gap: 8px; }
+    body:not(.pen-active) .pen-options { display: none; }
     .btn-present {
       background: rgba(255,255,255,0.15); color: white;
       border: 1px solid rgba(255,255,255,0.35); border-radius: 4px;
@@ -3891,9 +3929,12 @@ function showToast(msg) {
 // ─── PRESENT MODE ─────────────────────────────────────────────────────────────
 function enterPresentMode() {
   document.body.classList.add('present-mode');
+  resizePenCanvas();
   if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
 }
 function exitPresentMode() {
+  deactivatePen();
+  clearPenCanvas();
   document.body.classList.remove('present-mode');
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
@@ -3901,8 +3942,84 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.body.classList.contains('present-mode')) exitPresentMode();
 });
 document.addEventListener('fullscreenchange', () => {
-  if (!document.fullscreenElement) document.body.classList.remove('present-mode');
+  if (!document.fullscreenElement) { deactivatePen(); clearPenCanvas(); document.body.classList.remove('present-mode'); }
 });
+
+// ─── PRESENTATION PEN ─────────────────────────────────────────────────────────
+const _penCanvas = document.getElementById('present-canvas');
+const _penCtx    = _penCanvas.getContext('2d');
+let penSize  = 5;
+let _penColor = '#ff3b3b';
+let _penDown  = false;
+let _penLX = 0, _penLY = 0;
+
+function resizePenCanvas() {
+  // Preserve drawn content across resize
+  const img = _penCtx.getImageData(0, 0, _penCanvas.width, _penCanvas.height);
+  _penCanvas.width  = window.innerWidth;
+  _penCanvas.height = window.innerHeight;
+  _penCtx.putImageData(img, 0, 0);
+}
+window.addEventListener('resize', () => { if (document.body.classList.contains('present-mode')) resizePenCanvas(); });
+
+function setPenColor(color, btn) {
+  _penColor = color;
+  document.querySelectorAll('.pen-color-btn').forEach(b => b.classList.remove('selected'));
+  if (btn) btn.classList.add('selected');
+}
+function togglePen() {
+  if (document.body.classList.contains('pen-active')) deactivatePen();
+  else activatePen();
+}
+function activatePen() {
+  document.body.classList.add('pen-active');
+  document.getElementById('pen-toggle-btn').classList.add('active');
+}
+function deactivatePen() {
+  document.body.classList.remove('pen-active');
+  document.getElementById('pen-toggle-btn').classList.remove('active');
+  _penDown = false;
+}
+function clearPenCanvas() {
+  _penCtx.clearRect(0, 0, _penCanvas.width, _penCanvas.height);
+}
+
+function _penPos(e) {
+  if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+_penCanvas.addEventListener('mousedown',  e => { _penDown = true; const p = _penPos(e); _penLX = p.x; _penLY = p.y; });
+_penCanvas.addEventListener('mousemove',  e => {
+  if (!_penDown) return;
+  const p = _penPos(e);
+  _penCtx.beginPath();
+  _penCtx.moveTo(_penLX, _penLY);
+  _penCtx.lineTo(p.x, p.y);
+  _penCtx.strokeStyle = _penColor;
+  _penCtx.lineWidth   = penSize;
+  _penCtx.lineCap     = 'round';
+  _penCtx.lineJoin    = 'round';
+  _penCtx.stroke();
+  _penLX = p.x; _penLY = p.y;
+});
+_penCanvas.addEventListener('mouseup',    () => _penDown = false);
+_penCanvas.addEventListener('mouseleave', () => _penDown = false);
+_penCanvas.addEventListener('touchstart', e => { e.preventDefault(); _penDown = true; const p = _penPos(e); _penLX = p.x; _penLY = p.y; }, { passive: false });
+_penCanvas.addEventListener('touchmove',  e => {
+  e.preventDefault();
+  if (!_penDown) return;
+  const p = _penPos(e);
+  _penCtx.beginPath();
+  _penCtx.moveTo(_penLX, _penLY);
+  _penCtx.lineTo(p.x, p.y);
+  _penCtx.strokeStyle = _penColor;
+  _penCtx.lineWidth   = penSize;
+  _penCtx.lineCap     = 'round';
+  _penCtx.lineJoin    = 'round';
+  _penCtx.stroke();
+  _penLX = p.x; _penLY = p.y;
+}, { passive: false });
+_penCanvas.addEventListener('touchend', () => _penDown = false);
 </script>
 
 <div id="excl-tip"></div>
@@ -3911,5 +4028,24 @@ document.addEventListener('fullscreenchange', () => {
   <span class="toast-msg"></span>
 </div>
 <div id="present-hint">Press ESC to exit presentation</div>
+
+<canvas id="present-canvas"></canvas>
+
+<div id="present-toolbar">
+  <button class="pt-btn" id="pen-toggle-btn" onclick="togglePen()">✏️ Pen</button>
+  <div class="pen-options">
+    <div class="pt-sep"></div>
+    <button class="pen-color-btn selected" style="background:#ff3b3b;" onclick="setPenColor('#ff3b3b',this)" title="Red"></button>
+    <button class="pen-color-btn" style="background:#ff9500;" onclick="setPenColor('#ff9500',this)" title="Orange"></button>
+    <button class="pen-color-btn" style="background:#ffcc00;" onclick="setPenColor('#ffcc00',this)" title="Yellow"></button>
+    <button class="pen-color-btn" style="background:#34c759;" onclick="setPenColor('#34c759',this)" title="Green"></button>
+    <button class="pen-color-btn" style="background:#00aaff;" onclick="setPenColor('#00aaff',this)" title="Blue"></button>
+    <button class="pen-color-btn" style="background:white;" onclick="setPenColor('white',this)" title="White"></button>
+    <div class="pt-sep"></div>
+    <input type="range" id="pen-size-slider" min="2" max="24" value="5" title="Pen size" oninput="penSize=parseInt(this.value)" />
+    <div class="pt-sep"></div>
+    <button class="pt-btn" onclick="clearPenCanvas()" title="Clear all marks">🗑 Clear</button>
+  </div>
+</div>
 </body>
 </html>
