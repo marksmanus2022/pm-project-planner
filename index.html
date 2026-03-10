@@ -54,7 +54,10 @@
       #comment-view-popup { display: none !important; }
       /* avoid page breaks inside a month block */
       .month-grid { page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; }
+      /* annotation marks overlay */
+      #print-marks-img { display: block !important; position: fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999; pointer-events:none; }
     }
+    #print-marks-img { display: none; }
     #print-header {
       display: none;
       font-size: 14px; font-weight: 600; color: #333;
@@ -4023,7 +4026,35 @@ function showToast(msg) {
 let _penCanvas = null, _penCtx = null, _scrollEl = null;
 let penSize = 5, _penColor = '#ff3b3b', _penDown = false;
 let _strokes = [];        // stored in content-space coords
+let _redoStack = [];
 let _currentStroke = null;
+
+function _updateUndoRedoBtns() {
+  const u = document.getElementById('undo-pen-btn');
+  const r = document.getElementById('redo-pen-btn');
+  if (u) u.disabled = _strokes.length === 0;
+  if (r) r.disabled = _redoStack.length === 0;
+}
+function undoPenStroke() {
+  if (_strokes.length === 0) return;
+  _redoStack.push(_strokes.pop());
+  _redrawStrokes(); _updateUndoRedoBtns();
+}
+function redoPenStroke() {
+  if (_redoStack.length === 0) return;
+  _strokes.push(_redoStack.pop());
+  _redrawStrokes(); _updateUndoRedoBtns();
+}
+function savePresentWithMarks() {
+  // Stamp the canvas marks as a fixed <img> so they print over the calendar
+  let marksImg = document.getElementById('print-marks-img');
+  if (!marksImg) { marksImg = document.createElement('img'); marksImg.id = 'print-marks-img'; document.body.appendChild(marksImg); }
+  marksImg.src = (_penCanvas && _strokes.length > 0) ? _penCanvas.toDataURL('image/png') : '';
+  document.getElementById('print-header-title').textContent = document.getElementById('navTitle').textContent || '';
+  document.getElementById('print-header-date').textContent  = new Date().toLocaleDateString();
+  window.print();
+  setTimeout(() => { marksImg.src = ''; }, 800);
+}
 
 function _scrollX() { return _scrollEl ? _scrollEl.scrollLeft : 0; }
 function _scrollY() { return _scrollEl ? _scrollEl.scrollTop  : 0; }
@@ -4087,7 +4118,16 @@ function _initPen() {
     _penCtx.stroke();
     _penCtx.globalCompositeOperation = 'source-over';
   }
-  function _endStroke() { _penDown = false; _currentStroke = null; }
+  function _endStroke() {
+    _penDown = false;
+    if (_currentStroke && _currentStroke.points.length > 1) {
+      _redoStack = []; // new stroke clears redo history
+      _updateUndoRedoBtns();
+    } else if (_currentStroke) {
+      _strokes.pop(); // discard single-point strokes
+    }
+    _currentStroke = null;
+  }
 
   _penCanvas.addEventListener('mousedown',  _startStroke);
   _penCanvas.addEventListener('mousemove',  _extendStroke);
@@ -4119,7 +4159,11 @@ function exitPresentMode() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.body.classList.contains('present-mode')) exitPresentMode();
+  if (e.key === 'Escape' && document.body.classList.contains('present-mode')) { exitPresentMode(); return; }
+  if (document.body.classList.contains('present-mode') && (e.ctrlKey || e.metaKey)) {
+    if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undoPenStroke(); }
+    if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); redoPenStroke(); }
+  }
 });
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) { deactivatePen(); clearPenCanvas(); document.body.classList.remove('present-mode'); }
@@ -4153,8 +4197,9 @@ function activateEraser() {
 }
 function deactivatePen() { activateHand(); }
 function clearPenCanvas() {
-  _strokes = []; _currentStroke = null;
+  _strokes = []; _redoStack = []; _currentStroke = null;
   if (_penCtx) _penCtx.clearRect(0, 0, _penCanvas.width, _penCanvas.height);
+  _updateUndoRedoBtns();
 }
 </script>
 
@@ -4184,6 +4229,11 @@ function clearPenCanvas() {
     <div class="pt-sep"></div>
     <button class="pt-btn" onclick="clearPenCanvas()" title="Clear all marks">🗑 Clear</button>
   </div>
+  <div class="pt-sep"></div>
+  <button class="pt-btn" id="undo-pen-btn" onclick="undoPenStroke()" title="Undo last mark (Ctrl+Z)" disabled>↩ Undo</button>
+  <button class="pt-btn" id="redo-pen-btn" onclick="redoPenStroke()" title="Redo (Ctrl+Y)" disabled>↪ Redo</button>
+  <div class="pt-sep"></div>
+  <button class="pt-btn" onclick="savePresentWithMarks()" title="Save annotated view as PDF">💾 Save</button>
 </div>
 </body>
 </html>
