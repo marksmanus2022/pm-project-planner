@@ -120,6 +120,18 @@
     body.present-mode #present-canvas { display: block; }
     body.present-mode.pen-active    #present-canvas { pointer-events: all; cursor: crosshair; }
     body.present-mode.eraser-active #present-canvas { pointer-events: all; cursor: cell; }
+    body.present-mode.text-active   #present-canvas { pointer-events: all; cursor: text; }
+
+    #present-text-input {
+      position: fixed; display: none; z-index: 99992;
+      background: transparent; border: none; border-bottom: 2px dashed currentColor;
+      outline: none; font-family: 'Segoe UI', sans-serif; font-weight: 600;
+      padding: 2px 4px; min-width: 60px; max-width: 80vw;
+    }
+    body.present-mode.text-active #present-text-input.active { display: block; }
+    .pen-font-size { display: none; align-items: center; gap: 4px; }
+    body.text-active .pen-font-size { display: flex; }
+    body.text-active .pen-color-btn { opacity: 1 !important; pointer-events: auto !important; }
 
     /* ── PRESENTATION TOOLBAR ── */
     #present-toolbar {
@@ -4024,7 +4036,7 @@ function showToast(msg) {
 
 // ─── PRESENT MODE + PEN ───────────────────────────────────────────────────────
 let _penCanvas = null, _penCtx = null, _scrollEl = null;
-let penSize = 5, _penColor = '#ff3b3b', _penDown = false;
+let penSize = 5, textFontSize = 24, _penColor = '#ff3b3b', _penDown = false;
 let _strokes = [];        // stored in content-space coords
 let _redoStack = [];
 let _currentStroke = null;
@@ -4064,6 +4076,13 @@ function _redrawStrokes() {
   const sx = _scrollX(), sy = _scrollY();
   _penCtx.clearRect(0, 0, _penCanvas.width, _penCanvas.height);
   _strokes.forEach(s => {
+    if (s.type === 'text') {
+      _penCtx.globalCompositeOperation = 'source-over';
+      _penCtx.fillStyle = s.color;
+      _penCtx.font = `bold ${s.fontSize}px 'Segoe UI', sans-serif`;
+      _penCtx.fillText(s.text, s.cx - sx, s.cy - sy);
+      return;
+    }
     if (s.points.length < 2) return;
     _penCtx.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over';
     _penCtx.beginPath();
@@ -4129,11 +4148,47 @@ function _initPen() {
     _currentStroke = null;
   }
 
-  _penCanvas.addEventListener('mousedown',  _startStroke);
+  // Text tool
+  const _textInput = document.getElementById('present-text-input');
+  let _textCX = 0, _textCY = 0;
+
+  function _commitText() {
+    const val = _textInput.value.trim();
+    if (val) {
+      _strokes.push({ type: 'text', cx: _textCX, cy: _textCY, text: val, color: _penColor, fontSize: textFontSize });
+      _redoStack = [];
+      _redrawStrokes();
+      _updateUndoRedoBtns();
+    }
+    _textInput.value = '';
+    _textInput.classList.remove('active');
+  }
+  _textInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); _commitText(); }
+    if (e.key === 'Escape') { _textInput.value = ''; _textInput.classList.remove('active'); }
+  });
+  _textInput.addEventListener('blur', _commitText);
+
+  _penCanvas.addEventListener('click', e => {
+    if (!document.body.classList.contains('text-active')) return;
+    // Commit any pending text first
+    if (_textInput.classList.contains('active')) _commitText();
+    const p = _clientPos(e);
+    _textCX = p.x + _scrollX();
+    _textCY = p.y + _scrollY();
+    _textInput.style.left     = p.x + 'px';
+    _textInput.style.top      = (p.y - textFontSize) + 'px';
+    _textInput.style.fontSize = textFontSize + 'px';
+    _textInput.style.color    = _penColor;
+    _textInput.classList.add('active');
+    setTimeout(() => _textInput.focus(), 0);
+  });
+
+  _penCanvas.addEventListener('mousedown',  e => { if (!document.body.classList.contains('text-active')) _startStroke(e); });
   _penCanvas.addEventListener('mousemove',  _extendStroke);
   _penCanvas.addEventListener('mouseup',    _endStroke);
   _penCanvas.addEventListener('mouseleave', _endStroke);
-  _penCanvas.addEventListener('touchstart', e => { e.preventDefault(); _startStroke(e);  }, { passive: false });
+  _penCanvas.addEventListener('touchstart', e => { e.preventDefault(); if (!document.body.classList.contains('text-active')) _startStroke(e); }, { passive: false });
   _penCanvas.addEventListener('touchmove',  e => { e.preventDefault(); _extendStroke(e); }, { passive: false });
   _penCanvas.addEventListener('touchend',   _endStroke);
 
@@ -4181,19 +4236,24 @@ function _setToolBtn(activeId) {
   });
 }
 function activateHand() {
-  document.body.classList.remove('pen-active', 'eraser-active');
+  document.body.classList.remove('pen-active', 'eraser-active', 'text-active');
   _setToolBtn('hand-btn');
   _penDown = false;
 }
 function activatePen() {
-  document.body.classList.remove('eraser-active');
+  document.body.classList.remove('eraser-active', 'text-active');
   document.body.classList.add('pen-active');
   _setToolBtn('pen-toggle-btn');
 }
 function activateEraser() {
-  document.body.classList.remove('pen-active');
+  document.body.classList.remove('pen-active', 'text-active');
   document.body.classList.add('eraser-active');
   _setToolBtn('eraser-btn');
+}
+function activateText() {
+  document.body.classList.remove('pen-active', 'eraser-active');
+  document.body.classList.add('text-active');
+  _setToolBtn('text-btn');
 }
 function deactivatePen() { activateHand(); }
 function clearPenCanvas() {
@@ -4211,11 +4271,13 @@ function clearPenCanvas() {
 <div id="present-hint">Press ESC to exit presentation</div>
 
 <canvas id="present-canvas"></canvas>
+<input id="present-text-input" type="text" placeholder="Type here, press Enter" autocomplete="off" />
 
 <div id="present-toolbar">
   <button class="pt-btn active" id="hand-btn" onclick="activateHand()" title="Scroll / interact">🖐 Scroll</button>
   <button class="pt-btn" id="pen-toggle-btn" onclick="activatePen()" title="Draw annotations">✏️ Pen</button>
   <button class="pt-btn" id="eraser-btn" onclick="activateEraser()" title="Erase marks">🧹 Eraser</button>
+  <button class="pt-btn" id="text-btn" onclick="activateText()" title="Type text on canvas">T Text</button>
   <div class="pen-options">
     <div class="pt-sep"></div>
     <button class="pen-color-btn selected" style="background:#ff3b3b;" onclick="setPenColor('#ff3b3b',this)" title="Red"></button>
@@ -4225,7 +4287,11 @@ function clearPenCanvas() {
     <button class="pen-color-btn" style="background:#00aaff;" onclick="setPenColor('#00aaff',this)" title="Blue"></button>
     <button class="pen-color-btn" style="background:white;" onclick="setPenColor('white',this)" title="White"></button>
     <div class="pt-sep"></div>
-    <input type="range" id="pen-size-slider" min="2" max="24" value="5" title="Pen size" oninput="penSize=parseInt(this.value)" />
+    <input type="range" id="pen-size-slider" min="2" max="24" value="5" title="Pen / eraser size" oninput="penSize=parseInt(this.value)" />
+    <div class="pen-font-size">
+      <span style="color:rgba(255,255,255,0.6);font-size:11px;">Aa</span>
+      <input type="range" id="font-size-slider" min="12" max="96" value="24" title="Font size" oninput="textFontSize=parseInt(this.value)" style="width:70px;accent-color:white;cursor:pointer;" />
+    </div>
     <div class="pt-sep"></div>
     <button class="pt-btn" onclick="clearPenCanvas()" title="Clear all marks">🗑 Clear</button>
   </div>
