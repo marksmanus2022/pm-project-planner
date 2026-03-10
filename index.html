@@ -115,7 +115,8 @@
       z-index: 9990; pointer-events: none; display: none;
     }
     body.present-mode #present-canvas { display: block; }
-    body.present-mode.pen-active #present-canvas { pointer-events: all; cursor: crosshair; }
+    body.present-mode.pen-active    #present-canvas { pointer-events: all; cursor: crosshair; }
+    body.present-mode.eraser-active #present-canvas { pointer-events: all; cursor: cell; }
 
     /* ── PRESENTATION TOOLBAR ── */
     #present-toolbar {
@@ -145,7 +146,8 @@
       width: 70px; accent-color: white; cursor: pointer; vertical-align: middle;
     }
     .pen-options { display: flex; align-items: center; gap: 8px; }
-    body:not(.pen-active) .pen-options { display: none; }
+    body:not(.pen-active):not(.eraser-active) .pen-options { display: none; }
+    body.eraser-active .pen-color-btn { opacity: 0.3; pointer-events: none; }
     .btn-present {
       background: rgba(255,255,255,0.15); color: white;
       border: 1px solid rgba(255,255,255,0.35); border-radius: 4px;
@@ -4032,8 +4034,9 @@ function _redrawStrokes() {
   _penCtx.clearRect(0, 0, _penCanvas.width, _penCanvas.height);
   _strokes.forEach(s => {
     if (s.points.length < 2) return;
+    _penCtx.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over';
     _penCtx.beginPath();
-    _penCtx.strokeStyle = s.color;
+    _penCtx.strokeStyle = s.erase ? 'rgba(0,0,0,1)' : s.color;
     _penCtx.lineWidth   = s.size;
     _penCtx.lineCap     = 'round';
     _penCtx.lineJoin    = 'round';
@@ -4042,6 +4045,7 @@ function _redrawStrokes() {
       _penCtx.lineTo(s.points[i].x - sx, s.points[i].y - sy);
     _penCtx.stroke();
   });
+  _penCtx.globalCompositeOperation = 'source-over';
 }
 
 function _initPen() {
@@ -4055,11 +4059,13 @@ function _initPen() {
     return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
                      : { x: e.clientX, y: e.clientY };
   }
+  function _isErasing() { return document.body.classList.contains('eraser-active'); }
   function _startStroke(e) {
     _penDown = true;
     const p = _clientPos(e);
     const cp = { x: p.x + _scrollX(), y: p.y + _scrollY() };
-    _currentStroke = { color: _penColor, size: penSize, points: [cp] };
+    const erase = _isErasing();
+    _currentStroke = { color: _penColor, size: penSize, erase, points: [cp] };
     _strokes.push(_currentStroke);
   }
   function _extendStroke(e) {
@@ -4067,17 +4073,19 @@ function _initPen() {
     const p = _clientPos(e);
     const cp = { x: p.x + _scrollX(), y: p.y + _scrollY() };
     _currentStroke.points.push(cp);
-    // Draw only the new segment for performance
     const prev = _currentStroke.points[_currentStroke.points.length - 2];
     const sx = _scrollX(), sy = _scrollY();
+    const erase = _currentStroke.erase;
+    _penCtx.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
     _penCtx.beginPath();
     _penCtx.moveTo(prev.x - sx, prev.y - sy);
     _penCtx.lineTo(cp.x  - sx, cp.y  - sy);
-    _penCtx.strokeStyle = _penColor;
+    _penCtx.strokeStyle = erase ? 'rgba(0,0,0,1)' : _penColor;
     _penCtx.lineWidth   = penSize;
     _penCtx.lineCap     = 'round';
     _penCtx.lineJoin    = 'round';
     _penCtx.stroke();
+    _penCtx.globalCompositeOperation = 'source-over';
   }
   function _endStroke() { _penDown = false; _currentStroke = null; }
 
@@ -4122,16 +4130,26 @@ function setPenColor(color, btn) {
   document.querySelectorAll('.pen-color-btn').forEach(b => b.classList.remove('selected'));
   if (btn) btn.classList.add('selected');
 }
+function _setToolBtn(activeId) {
+  ['hand-btn','pen-toggle-btn','eraser-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', id === activeId);
+  });
+}
 function activateHand() {
-  document.body.classList.remove('pen-active');
-  document.getElementById('hand-btn').classList.add('active');
-  document.getElementById('pen-toggle-btn').classList.remove('active');
+  document.body.classList.remove('pen-active', 'eraser-active');
+  _setToolBtn('hand-btn');
   _penDown = false;
 }
 function activatePen() {
+  document.body.classList.remove('eraser-active');
   document.body.classList.add('pen-active');
-  document.getElementById('pen-toggle-btn').classList.add('active');
-  document.getElementById('hand-btn').classList.remove('active');
+  _setToolBtn('pen-toggle-btn');
+}
+function activateEraser() {
+  document.body.classList.remove('pen-active');
+  document.body.classList.add('eraser-active');
+  _setToolBtn('eraser-btn');
 }
 function deactivatePen() { activateHand(); }
 function clearPenCanvas() {
@@ -4152,6 +4170,7 @@ function clearPenCanvas() {
 <div id="present-toolbar">
   <button class="pt-btn active" id="hand-btn" onclick="activateHand()" title="Scroll / interact">🖐 Scroll</button>
   <button class="pt-btn" id="pen-toggle-btn" onclick="activatePen()" title="Draw annotations">✏️ Pen</button>
+  <button class="pt-btn" id="eraser-btn" onclick="activateEraser()" title="Erase marks">🧹 Eraser</button>
   <div class="pen-options">
     <div class="pt-sep"></div>
     <button class="pen-color-btn selected" style="background:#ff3b3b;" onclick="setPenColor('#ff3b3b',this)" title="Red"></button>
