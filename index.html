@@ -4212,6 +4212,12 @@ function _initPen() {
     }
   });
 
+  let _singleClickTimer = null;
+  _penCanvas.addEventListener('dblclick', e => {
+    // Cancel any pending single-click open triggered by first click of dblclick
+    if (_singleClickTimer) { clearTimeout(_singleClickTimer); _singleClickTimer = null; }
+  });
+
   _penCanvas.addEventListener('mousemove', e => {
     if (_dragTextStroke) {
       const p = _clientPos(e);
@@ -4240,8 +4246,8 @@ function _initPen() {
     }
     const isText = document.body.classList.contains('text-active');
     if (isText && _textDownPos) {
-      _openTextInput(_textDownPos.x, _textDownPos.y);
-      _textDownPos = null;
+      const pos = _textDownPos; _textDownPos = null;
+      _singleClickTimer = setTimeout(() => { _singleClickTimer = null; _openTextInput(pos.x, pos.y); }, 220);
     } else {
       _endStroke();
     }
@@ -4271,6 +4277,27 @@ function _initPen() {
   _penCanvas.addEventListener('touchend', e => {
     if (_dragTextStroke) { _dragTextStroke = null; _penCanvas.style.cursor = ''; _redoStack = []; _updateUndoRedoBtns(); }
     else _endStroke();
+  });
+
+  _penCanvas.addEventListener('dblclick', e => {
+    if (!document.body.classList.contains('text-active')) return;
+    const p = _clientPos(e);
+    const cx = p.x + _scrollX(), cy = p.y + _scrollY();
+    const hit = _hitTestText(cx, cy);
+    if (!hit) return;
+    // Remove stroke so it can be re-committed after editing
+    _strokes.splice(_strokes.indexOf(hit), 1);
+    _redrawStrokes();
+    // Pre-fill input with existing text and open at screen position
+    _textCX = hit.cx;
+    _textCY = hit.cy;
+    _textInput.value = hit.text;
+    _textInput.style.left     = (hit.cx - _scrollX()) + 'px';
+    _textInput.style.top      = (hit.cy - hit.fontSize - _scrollY()) + 'px';
+    _textInput.style.fontSize = hit.fontSize + 'px';
+    _textInput.style.color    = hit.color;
+    _textInput.classList.add('active');
+    setTimeout(() => { _textInput.focus(); _textInput.select(); }, 0);
   });
 
   window.addEventListener('resize', () => {
