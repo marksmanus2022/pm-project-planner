@@ -32,6 +32,34 @@
     /* ── LAYOUT ── */
     .body-layout { display: flex; flex: 1; overflow: hidden; }
 
+    /* ── PRINT / PDF EXPORT ── */
+    @media print {
+      @page { margin: 10mm; size: A4 landscape; }
+      body { overflow: visible !important; height: auto !important; background: white !important; }
+      .header   { display: none !important; }
+      .sidebar  { display: none !important; }
+      .nav-bar  { display: none !important; }
+      .body-layout  { display: block !important; height: auto !important; overflow: visible !important; }
+      .main-content { display: block !important; height: auto !important; overflow: visible !important; }
+      .calendar-area { overflow: visible !important; height: auto !important; box-shadow: none !important; padding: 0 !important; }
+      .legend-bar { border: none !important; box-shadow: none !important; }
+      /* print header */
+      #print-header { display: block !important; }
+      /* hide interactive elements */
+      .btn-present, #present-toolbar, #present-hint, #lock-toast,
+      #excl-tip, #tooltip, #task-popup, #day-menu, #quick-add-overlay,
+      #exclusive-warn-overlay, #holiday-overlay, #comment-modal-overlay,
+      #comment-view-popup { display: none !important; }
+      /* avoid page breaks inside a month block */
+      .month-grid { page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; }
+    }
+    #print-header {
+      display: none;
+      font-size: 14px; font-weight: 600; color: #333;
+      padding-bottom: 8px; margin-bottom: 4px;
+      border-bottom: 2px solid #1a73e8;
+    }
+
     /* ── ICY DATE NUMBER ── */
     .month-date-num.icy-date {
       background: linear-gradient(135deg, #b3e5fc 0%, #e1f5fe 45%, #b3d9f2 100%) !important;
@@ -1130,6 +1158,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <button id="btn-redo" class="btn-file btn-undoredo" onclick="redo()" disabled title="Redo (Ctrl+Y)">Redo &#8594;</button>
   <div class="header-divider"></div>
   <button class="btn-export" onclick="exportToExcel()">&#8595; Export Excel</button>
+  <button class="btn-export" onclick="exportPDF()" title="Export calendar as PDF">&#8595; Export PDF</button>
   <div class="header-divider"></div>
   <button class="btn-present" onclick="enterPresentMode()" title="Present mode — fullscreen calendar (ESC to exit)">&#9654; Present</button>
   <span class="header-label">Project Start</span>
@@ -1292,6 +1321,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div class="legend-bar" id="legendBar">
       <span class="legend-label">Tasks:</span>
       <span style="font-size:11px;color:#bbb;">No tasks yet</span>
+    </div>
+
+    <!-- Print header (visible only when printing) -->
+    <div id="print-header">
+      PM Project Planner &nbsp;·&nbsp; <span id="print-header-title"></span> &nbsp;·&nbsp; Printed <span id="print-header-date"></span>
     </div>
 
     <!-- Calendar -->
@@ -3311,6 +3345,14 @@ function applyProjectPayload(text, filename, handle) {
 }
 
 // ─── EXPORT TO EXCEL ──────────────────────────────────────────────────────────
+function exportPDF() {
+  // Fill in the print header
+  const title = document.getElementById('navTitle').textContent || 'Project Plan';
+  document.getElementById('print-header-title').textContent = title;
+  document.getElementById('print-header-date').textContent  = new Date().toLocaleDateString();
+  window.print();
+}
+
 async function exportToExcel() {
   if (computed.length === 0) { alert('No tasks to export.'); return; }
   if (typeof ExcelJS === 'undefined') { alert('Excel library not loaded. Please check your internet connection.'); return; }
