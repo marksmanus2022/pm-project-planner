@@ -4151,6 +4151,31 @@ function _initPen() {
   // Text tool
   const _textInput = document.getElementById('present-text-input');
   let _textCX = 0, _textCY = 0;
+  let _dragTextStroke = null, _dragOffCX = 0, _dragOffCY = 0, _dragMoved = false;
+  let _textDownPos = null;
+
+  function _hitTestText(cx, cy) {
+    for (let i = _strokes.length - 1; i >= 0; i--) {
+      const s = _strokes[i];
+      if (s.type !== 'text') continue;
+      _penCtx.font = `bold ${s.fontSize}px 'Segoe UI', sans-serif`;
+      const w = _penCtx.measureText(s.text).width;
+      const h = s.fontSize;
+      if (cx >= s.cx - 4 && cx <= s.cx + w + 4 && cy >= s.cy - h - 4 && cy <= s.cy + 8) return s;
+    }
+    return null;
+  }
+
+  function _openTextInput(screenX, screenY) {
+    _textCX = screenX + _scrollX();
+    _textCY = screenY + _scrollY();
+    _textInput.style.left     = screenX + 'px';
+    _textInput.style.top      = (screenY - textFontSize) + 'px';
+    _textInput.style.fontSize = textFontSize + 'px';
+    _textInput.style.color    = _penColor;
+    _textInput.classList.add('active');
+    setTimeout(() => _textInput.focus(), 0);
+  }
 
   function _commitText() {
     const val = _textInput.value.trim();
@@ -4167,30 +4192,86 @@ function _initPen() {
     if (e.key === 'Enter') { e.preventDefault(); _commitText(); }
     if (e.key === 'Escape') { _textInput.value = ''; _textInput.classList.remove('active'); }
   });
-  _textInput.addEventListener('blur', _commitText);
+  _textInput.addEventListener('blur', () => { if (!_dragTextStroke) _commitText(); });
 
-  _penCanvas.addEventListener('click', e => {
-    if (!document.body.classList.contains('text-active')) return;
-    // Commit any pending text first
+  _penCanvas.addEventListener('mousedown', e => {
+    const isText = document.body.classList.contains('text-active');
+    if (!isText) { _startStroke(e); return; }
     if (_textInput.classList.contains('active')) _commitText();
     const p = _clientPos(e);
-    _textCX = p.x + _scrollX();
-    _textCY = p.y + _scrollY();
-    _textInput.style.left     = p.x + 'px';
-    _textInput.style.top      = (p.y - textFontSize) + 'px';
-    _textInput.style.fontSize = textFontSize + 'px';
-    _textInput.style.color    = _penColor;
-    _textInput.classList.add('active');
-    setTimeout(() => _textInput.focus(), 0);
+    const cx = p.x + _scrollX(), cy = p.y + _scrollY();
+    const hit = _hitTestText(cx, cy);
+    if (hit) {
+      _dragTextStroke = hit;
+      _dragOffCX = cx - hit.cx;
+      _dragOffCY = cy - hit.cy;
+      _dragMoved = false;
+      _penCanvas.style.cursor = 'grabbing';
+    } else {
+      _textDownPos = { x: p.x, y: p.y };
+    }
   });
 
-  _penCanvas.addEventListener('mousedown',  e => { if (!document.body.classList.contains('text-active')) _startStroke(e); });
-  _penCanvas.addEventListener('mousemove',  _extendStroke);
-  _penCanvas.addEventListener('mouseup',    _endStroke);
-  _penCanvas.addEventListener('mouseleave', _endStroke);
-  _penCanvas.addEventListener('touchstart', e => { e.preventDefault(); if (!document.body.classList.contains('text-active')) _startStroke(e); }, { passive: false });
-  _penCanvas.addEventListener('touchmove',  e => { e.preventDefault(); _extendStroke(e); }, { passive: false });
-  _penCanvas.addEventListener('touchend',   _endStroke);
+  _penCanvas.addEventListener('mousemove', e => {
+    if (_dragTextStroke) {
+      const p = _clientPos(e);
+      const cx = p.x + _scrollX(), cy = p.y + _scrollY();
+      _dragTextStroke.cx = cx - _dragOffCX;
+      _dragTextStroke.cy = cy - _dragOffCY;
+      _dragMoved = true;
+      _redrawStrokes();
+      return;
+    }
+    const isText = document.body.classList.contains('text-active');
+    if (!isText) { _extendStroke(e); return; }
+    // Update cursor: show grab when hovering over existing text
+    const p2 = _clientPos(e);
+    const hit2 = _hitTestText(p2.x + _scrollX(), p2.y + _scrollY());
+    _penCanvas.style.cursor = hit2 ? 'grab' : 'text';
+  });
+
+  _penCanvas.addEventListener('mouseup', e => {
+    if (_dragTextStroke) {
+      _dragTextStroke = null;
+      _penCanvas.style.cursor = '';
+      _redoStack = [];
+      _updateUndoRedoBtns();
+      return;
+    }
+    const isText = document.body.classList.contains('text-active');
+    if (isText && _textDownPos) {
+      _openTextInput(_textDownPos.x, _textDownPos.y);
+      _textDownPos = null;
+    } else {
+      _endStroke();
+    }
+  });
+
+  _penCanvas.addEventListener('mouseleave', e => {
+    if (!_dragTextStroke) _endStroke();
+  });
+
+  _penCanvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!document.body.classList.contains('text-active')) _startStroke(e);
+  }, { passive: false });
+  _penCanvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (_dragTextStroke) {
+      const p = _clientPos(e);
+      const cx = p.x + _scrollX(), cy = p.y + _scrollY();
+      _dragTextStroke.cx = cx - _dragOffCX;
+      _dragTextStroke.cy = cy - _dragOffCY;
+      _dragMoved = true;
+      _redrawStrokes();
+    } else {
+      _extendStroke(e);
+    }
+  }, { passive: false });
+  _penCanvas.addEventListener('touchend', e => {
+    if (_dragTextStroke) { _dragTextStroke = null; _penCanvas.style.cursor = ''; _redoStack = []; _updateUndoRedoBtns(); }
+    else _endStroke();
+  });
 
   window.addEventListener('resize', () => {
     if (!document.body.classList.contains('present-mode')) return;
