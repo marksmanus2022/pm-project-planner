@@ -1365,6 +1365,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <button class="popup-btn-edit"   id="popup-btn-edit"   style="width:100%;padding:7px;background:#1a73e8;color:white;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:6px;">&#9998; Edit Task</button>
   <button class="popup-btn-delete" id="popup-btn-delete">&#10005; Remove Task</button>
   <button id="popup-btn-lock" style="width:100%;padding:7px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;margin-top:6px;margin-bottom:2px;border:1px solid #f9ab64;background:#fff8f0;color:#f57c00;">&#128274; Lock Task</button>
+  <button id="popup-btn-complete" style="width:100%;padding:7px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;margin-top:6px;margin-bottom:2px;border:1px solid #ddd;background:#f5f5f5;color:#555;">&#10003; Mark as Completed</button>
   <button class="popup-btn-cancel" onclick="closeTaskPopup()">Cancel</button>
 </div>
 
@@ -2046,6 +2047,13 @@ function toggleLock(uid) {
   const t = tasks.find(t => t.uid === uid);
   if (!t) return;
   t.locked = !t.locked;
+  save(); refresh();
+}
+
+function toggleComplete(uid) {
+  const t = tasks.find(t => t.uid === uid);
+  if (!t) return;
+  t.completed = !t.completed;
   save(); refresh();
 }
 
@@ -2922,6 +2930,7 @@ function renderMonthCalendar() {
           const isEnd   = task.endDate   && isSameDay(weekDates[lastIdx],  task.endDate);
           const isEval   = task.planType === 'evaluation';
           const isDblShift = (task.shiftsPerDay || 1) >= 2;
+          const isCompleted = !!task.completed;
           let barType = (isStart && isEnd) ? 'solo' : isStart ? 'start' : isEnd ? 'end' : 'mid';
           const isIcy = isIcyTask(task);
           let barCls = 'month-task-bar bar-' + barType;
@@ -2929,15 +2938,18 @@ function renderMonthCalendar() {
           if (isDblShift) barCls += ' double-shift';
           if (isIcy)      barCls += ' icy-task';
           const tipData  = makeTipData(task);
-          const barStyle = isEval
-            ? `grid-column:${firstIdx + 2}/${lastIdx + 3}; border-color:${color}; color:${color}`
-            : `grid-column:${firstIdx + 2}/${lastIdx + 3}; background:${color}`;
+          const barStyle = isCompleted
+            ? `grid-column:${firstIdx + 2}/${lastIdx + 3}; background:#000000; color:#fcfcfc`
+            : isEval
+              ? `grid-column:${firstIdx + 2}/${lastIdx + 3}; border-color:${color}; color:${color}`
+              : `grid-column:${firstIdx + 2}/${lastIdx + 3}; background:${color}`;
           const arrowL = (barType === 'end'  || barType === 'mid') ? '<span class="bar-arrow bar-arrow-l">&#9654;</span>' : '';
           const arrowR = (barType === 'start'|| barType === 'mid') ? '<span class="bar-arrow bar-arrow-r">&#9654;</span>' : '';
           const beginLabel = barType === 'start' ? '<span class="bar-begin-label">Task Begin</span>' : '';
           const endLabel   = barType === 'end'   ? '<span class="bar-end-label">End</span>' : '';
           const durBadge   = `<span class="month-bar-badge month-bar-dur">${task.duration}d</span>`;
           const calBarDraggable = !task.locked && !isSiteLocked(task.site);
+          const displayName = `${isIcy ? '❄️ ' : ''}${task.site ? task.site + ': ' : ''}${task.name}${isEval ? ' (prop)' : ''}${isCompleted ? ' - COMP' : ''}`;
           html += `<div class="${barCls}"
             style="${barStyle}"
             data-tip='${tipData}' data-taskid="${task.uid}"
@@ -2949,7 +2961,7 @@ function renderMonthCalendar() {
             <span class="month-bar-inner">
               ${arrowL}
               ${beginLabel}
-              <span style="overflow:hidden;text-overflow:ellipsis;">${isIcy ? '❄️ ' : ''}${task.site ? task.site + ': ' : ''}${task.name}${isEval ? ' (prop)' : ''}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;${isCompleted ? 'color:#fcfcfc;' : ''}">${displayName}</span>
               ${isDblShift ? '<span class="month-bar-badge">2 shifts</span>' : ''}
               ${durBadge}
               ${endLabel}
@@ -3150,6 +3162,13 @@ function openTaskPopup(event, taskId) {
   editBtn.onclick   = () => startEditTask(taskId);
   deleteBtn.onclick = () => { closeTaskPopup(); deleteTask(taskId); };
   lockBtn.onclick   = () => { closeTaskPopup(); toggleLock(taskId); };
+  const completeBtn = document.getElementById('popup-btn-complete');
+  const isCompleted = !!task.completed;
+  completeBtn.textContent  = isCompleted ? '\u21A9 Mark as Incomplete' : '\u2713 Mark as Completed';
+  completeBtn.style.background  = isCompleted ? '#e8f5e9' : '#f5f5f5';
+  completeBtn.style.color       = isCompleted ? '#2e7d32' : '#555';
+  completeBtn.style.borderColor = isCompleted ? '#a5d6a7' : '#ddd';
+  completeBtn.onclick = () => { closeTaskPopup(); toggleComplete(taskId); };
   taskPopup.classList.add('show');
   let x = event.clientX+8, y = event.clientY+8;
   if (x+200 > window.innerWidth)  x = event.clientX-208;
